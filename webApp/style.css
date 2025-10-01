@@ -1,7 +1,8 @@
-head {
+#title {
     height: 100%;
     margin: 0;
     padding: 0;
+    text-align: center;
 }
 
 body {
@@ -17,6 +18,29 @@ body {
     min-height: 100vh;
 }
 
-.mainMenu {
-    width: 1000px;
+#mainMenu {
+    width: 300px;
+    margin: 40px auto;
+    padding: 20px;
+    background: rgba(0,0,0,0.6);
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    text-align: center;
+}
+
+#mainMenu button {
+    width: 80%;
+    margin: 10px 0;
+    padding: 10px;
+    font-size: 1.1em;
+    border: none;
+    border-radius: 6px;
+    background: gold;
+    color: black;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+#mainMenu button:hover {
+    background: orange;
 }
