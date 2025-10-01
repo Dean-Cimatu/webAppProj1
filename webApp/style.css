@@ -1,0 +1,22 @@
+head {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'JetBrains Mono', monospace;
+    color: white;
+    margin: 3px;
+    padding: 5px;
+    background-color: maroon;
+    background-image: url('HDcolosseum.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    min-height: 100vh;
+}
+
+.mainMenu {
+    width: 1000px;
+}
