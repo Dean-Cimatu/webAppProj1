@@ -1,39 +1,44 @@
-// Registration Form Handler
+// Login Form Handler
 document.addEventListener('DOMContentLoaded', function() {
-    const registerForm = document.querySelector('#registerForm form');
+    const loginForm = document.querySelector('#loginForm form');
     
-    if (registerForm) {
-        registerForm.addEventListener('submit', function(e) {
+    if (loginForm) {
+        loginForm.addEventListener('submit', function(e) {
             e.preventDefault(); // Prevent default form submission
             
             // Get form data
-            const formData = {
-                username: document.getElementById('username').value,
-                email: document.getElementById('email').value,
-                password: document.getElementById('password').value,
-                dateOfBirth: document.getElementById('DateOfBirth').value
-            };
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
             
-            // Attempt registration
-            const result = auth.register(formData);
+            // Attempt login
+            const result = auth.login(username, password);
             
             // Display result
             displayMessage(result.message, result.success ? 'success' : 'error');
             
             if (result.success) {
                 // Clear form
-                registerForm.reset();
+                loginForm.reset();
                 
-                // Optional: Auto-redirect to login page after successful registration
+                // Redirect to home page after successful login
                 setTimeout(() => {
-                    window.location.href = 'login.html';
-                }, 2000);
+                    window.location.href = '../index.html';
+                }, 1500);
             }
         });
     }
+    
+    // Check if user is already logged in
+    if (auth.isLoggedIn()) {
+        const currentUser = auth.getCurrentUser();
+        displayMessage(`Welcome back, ${currentUser.username}! Redirecting to home...`, 'info');
+        setTimeout(() => {
+            window.location.href = '../index.html';
+        }, 2000);
+    }
 });
 
-// Display message function
+// Display message function (same as register.js)
 function displayMessage(message, type = 'info') {
     // Remove any existing message
     const existingMessage = document.querySelector('.auth-message');
@@ -60,7 +65,7 @@ function displayMessage(message, type = 'info') {
     `;
     
     // Insert message at the top of the form
-    const form = document.querySelector('#registerForm');
+    const form = document.querySelector('#loginForm');
     if (form) {
         form.insertBefore(messageDiv, form.firstChild);
         
