@@ -7,16 +7,31 @@
     <title>Register</title>
 </head>
 <body>
-    <h1>Register</h1>
-    <div id="registerForm">
+    <div id="topNav">
+        <a href="index.html"><button>Home</button></a>
+        <a href="register.html"><button>Register</button></a>
+        <a href="login.html"><button>Login</button></a>
+        <a href="leaderboard.html"><button>Leaderboard</button></a>
+        <a href="tutorial.html"><button>Tutorial</button></a>
+    </div>
+    
+    <div class="main-content">
+        <h1>Register</h1>
+        <div id="registerForm">
     <form action="/register" method="post">
         <label for="username">Username:</label><br>
         <input type="text" id="username" name="username" required><br>
+        <label for="email">Email:</label><br>
+        <input type="email" id="email" name="email" required><br>
+        <label for="DateOfBirth">Date of Birth:</label><br>
+        <input type="date" id="DateOfBirth" name="DateOfBirth"><br>
         <label for="password">Password:</label><br>
         <input type="password" id="password" name="password" required><br><br>
         <input type="submit" value="Register">
     </form>
-    <p>Already have an account? <a href="login.html">Login here</a>.</p>
-    <a href="index.html">Back</a>
+        <p>Already have an account? <a href="login.html">Login here</a>.</p>
+        <a href="index.html">Back</a>
+        </div>
+    </div>
 </body>
 </html>

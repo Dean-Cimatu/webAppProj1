@@ -7,8 +7,17 @@
     <title>Login</title>
 </head>
 <body>
-    <h1>Login</h1>
-    <div id="loginForm">
+    <div id="topNav">
+        <a href="index.html"><button>Home</button></a>
+        <a href="register.html"><button>Register</button></a>
+        <a href="login.html"><button>Login</button></a>
+        <a href="leaderboard.html"><button>Leaderboard</button></a>
+        <a href="tutorial.html"><button>Tutorial</button></a>
+    </div>
+    
+    <div class="main-content">
+        <h1>Login</h1>
+        <div id="loginForm">
     <form action="/login" method="post">
         <label for="username">Username:</label><br>
         <input type="text" id="username" name="username" required><br>
@@ -16,7 +25,9 @@
         <input type="password" id="password" name="password" required><br><br>
         <input type="submit" value="Login">
     </form>
-    <p>Don't have an account? <a href="register.html">Register here</a></p>
-    <a href="index.html">Back</a>
+        <p>Don't have an account? <a href="register.html">Register here</a></p>
+        <a href="index.html">Back</a>
+        </div>
+    </div>
 </body>
 </html>
