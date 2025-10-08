@@ -8,26 +8,78 @@
 #title {
     width: fit-content;
     margin: 0 auto;
-    padding: 5px;
     text-align: center;
-    background: rgba(128, 0, 0, 0.75);
-    border-radius: 15px;
     font-family: 'Pickyside', 'JetBrains Mono', monospace;
-    font-size: 1.5em;
     color: white;
+}
+
+#title h1 {
+    font-size: 5em;
+    margin: 0;
+    font-family: 'Pickyside', 'JetBrains Mono', monospace;
+}
+
+#title p {
+    font-size: 1.5em;
+    margin: 5px 0 0 0;
+    font-family: 'Pickyside', 'JetBrains Mono', monospace;
 }
 
 body {
     font-family: 'Pickyside', monospace;
     color: white;
-    margin: 3.75px;
-    padding: 10px;
+    margin: 0;
+    padding: 0;
     background-color: black;
     background-image: url('../background/HDcolosseum.jpg');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Top navigation for Register and Login buttons */
+#topNav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 5px 15px;
+    display: flex;
+    justify-content: left;
+    gap: 10px;
+    z-index: 1000;
+    border-bottom: 1px solid gold;
+}
+
+#topNav a button {
+    font-family: 'Pickyside', monospace;
+    font-size: 0.75em;
+    padding: 5px 12px;
+    border: none;
+    border-radius: 4px;
+    background: gold;
+    color: black;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+#topNav a button:hover {
+    background: orange;
+}
+
+/* Main content container to account for top nav */
+.main-content {
+    margin-top: 35px;
+    height: calc(100vh - 35px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    box-sizing: border-box;
 }
 
 #mainMenu {
