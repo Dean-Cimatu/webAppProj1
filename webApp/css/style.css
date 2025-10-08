@@ -6,20 +6,22 @@
 }
 
 #title {
-    height: 90%;
-    margin: 0px 50px 0 50px;
+    width: fit-content;
+    margin: 0 auto;
     padding: 5px;
     text-align: center;
-    background: maroon;
+    background: rgba(128, 0, 0, 0.75);
     border-radius: 15px;
     font-family: 'Pickyside', 'JetBrains Mono', monospace;
+    font-size: 1.5em;
+    color: white;
 }
 
 body {
     font-family: 'Pickyside', monospace;
     color: white;
     margin: 3.75px;
-    padding: 6.25px;
+    padding: 10px;
     background-color: black;
     background-image: url('../background/HDcolosseum.jpg');
     background-size: cover;
