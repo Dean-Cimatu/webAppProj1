@@ -39,7 +39,6 @@ body {
     overflow: hidden;
 }
 
-/* Top navigation for Register and Login buttons */
 #topNav {
     position: fixed;
     top: 0;
@@ -70,7 +69,6 @@ body {
     background: orange;
 }
 
-/* Main content container to account for top nav */
 .main-content {
     margin-top: 35px;
     height: calc(100vh - 35px);
@@ -145,7 +143,6 @@ body {
     box-shadow: 0 5px 20px rgba(0,0,0,0.3);
 }
 
-/* Account links styling (Login here, Register here) */
 #registerForm a, #loginForm a {
     font-family: 'Pickyside', monospace;
     color: gold;
@@ -159,7 +156,6 @@ body {
     text-decoration: underline;
 }
 
-/* Back button styling for all pages */
 body > a[href="index.html"] {
     display: inline-block;
     font-family: 'Pickyside', monospace;
@@ -180,4 +176,12 @@ body > a[href="index.html"]:hover {
     color: maroon;
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+body > h1 {
+    text-align: center;
+    font-family: 'Pickyside', monospace;
+    color: white;
+    margin: 20px 0;
+    font-size: 2.5em;
 }
