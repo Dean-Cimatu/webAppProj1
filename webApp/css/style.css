@@ -44,7 +44,7 @@ body {
     top: 0;
     left: 0;
     right: 0;
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.7);
     padding: 5px 15px;
     display: flex;
     justify-content: left;
@@ -66,7 +66,7 @@ body {
 }
 
 #topNav a button:hover {
-    background: orange;
+    background: maroon;
 }
 
 .main-content {
