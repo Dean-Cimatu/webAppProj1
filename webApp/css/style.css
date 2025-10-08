@@ -1,0 +1,129 @@
+@font-face {
+    font-family: 'Pickyside';
+    src: url('../fonts/Pickyside.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+#title {
+    height: 90%;
+    margin: 0px 50px 0 50px;
+    padding: 5px;
+    text-align: center;
+    background: maroon;
+    border-radius: 15px;
+    font-family: 'Pickyside', 'JetBrains Mono', monospace;
+}
+
+body {
+    font-family: 'Pickyside', monospace;
+    color: white;
+    margin: 3.75px;
+    padding: 6.25px;
+    background-color: black;
+    background-image: url('../background/HDcolosseum.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    min-height: 100vh;
+}
+
+#mainMenu {
+    width: 375px;
+    margin: 50px auto;
+    padding: 25px;
+    background: rgba(0,0,0,0.6);
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+    text-align: center;
+}
+
+#mainMenu button {
+    width: 80%;
+    margin: 12.5px 0;
+    padding: 12.5px;
+    font-size: 1.375em;
+    border: none;
+    border-radius: 7.5px;
+    background: gold;
+    color: black;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-family: 'Pickyside', monospace;
+}
+
+#mainMenu button:hover {
+    background: maroon;
+}
+
+#registerForm, #loginForm {
+    width: 375px;
+    margin: 25px auto;
+    padding: 25px;
+    background: rgba(0,0,0,0.6);
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+    font-family: 'Pickyside', monospace;
+}
+
+#registerForm input[type="submit"], #loginForm input[type="submit"] {
+    font-family: 'Pickyside', monospace;
+    font-size: 1;
+    padding: 10px 20px;
+    background: gold;
+    color: black;
+    border: none;
+    border-radius: 7.5px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+#registerForm input[type="submit"]:hover, #loginForm input[type="submit"]:hover {
+    background: maroon;
+}
+
+#leaderboard {
+    width: 500px;
+    margin: 25px auto;
+    padding: 25px;
+    background: rgba(0,0,0,0.6);
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+}
+
+/* Account links styling (Login here, Register here) */
+#registerForm a, #loginForm a {
+    font-family: 'Pickyside', monospace;
+    color: gold;
+    text-decoration: none;
+    font-weight: bold;
+    transition: color 0.2s;
+}
+
+#registerForm a:hover, #loginForm a:hover {
+    color: maroon;
+    text-decoration: underline;
+}
+
+/* Back button styling for all pages */
+body > a[href="index.html"] {
+    display: inline-block;
+    font-family: 'Pickyside', monospace;
+    font-size: 1.1em;
+    padding: 10px 20px;
+    margin: 20px;
+    background: rgba(139, 0, 0, 0.8);
+    color: gold;
+    text-decoration: none;
+    border-radius: 7.5px;
+    border: 2px solid gold;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+body > a[href="index.html"]:hover {
+    background: gold;
+    color: maroon;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
