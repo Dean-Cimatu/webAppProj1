@@ -98,7 +98,7 @@ function create() {
             { key: 'idle_0' }, { key: 'idle_1' }, { key: 'idle_2' }, { key: 'idle_3' },
             { key: 'idle_4' }, { key: 'idle_5' }, { key: 'idle_6' }, { key: 'idle_7' }
         ],
-        frameRate: 8,
+        frameRate: 4,
         repeat: -1
     });
     
@@ -116,7 +116,7 @@ function create() {
     // Start with idle animation
     player.play('idle');
     
-    cursors = this.input.keyboard.createCursorKeys();
+    cursors = this.input.keyboard.addKeys('W,S,A,D');
     
     camera = this.cameras.main;
     camera.startFollow(player);
@@ -131,20 +131,20 @@ function update() {
     
     player.setVelocity(0);
     
-    if (cursors.left.isDown) {
+    if (cursors.A.isDown) {
         player.setVelocityX(-speed);
         player.setFlipX(true);
         isMoving = true;
-    } else if (cursors.right.isDown) {
+    } else if (cursors.D.isDown) {
         player.setVelocityX(speed);
         player.setFlipX(false);
         isMoving = true;
     }
     
-    if (cursors.up.isDown) {
+    if (cursors.W.isDown) {
         player.setVelocityY(-speed);
         isMoving = true;
-    } else if (cursors.down.isDown) {
+    } else if (cursors.S.isDown) {
         player.setVelocityY(speed);
         isMoving = true;
     }
