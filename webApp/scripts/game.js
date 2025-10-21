@@ -17,6 +17,135 @@ const config = {
     }
 };
 
+const ENEMY_TYPES = {
+    'lereon_knight': { 
+        sprite: 'lereon_knight', 
+        size: 64, 
+        health: 100, 
+        damage: 15,
+        baseSpeed: 75 
+    },
+    'slime': { 
+        sprite: 'slime', 
+        size: 32, 
+        health: 40, 
+        damage: 8,
+        baseSpeed: 90 
+    },
+    'bat': { 
+        sprite: 'bat', 
+        size: 28, 
+        health: 30, 
+        damage: 6,
+        baseSpeed: 95 
+    },
+    'spider': { 
+        sprite: 'spider', 
+        size: 24, 
+        health: 25, 
+        damage: 5,
+        baseSpeed: 100 
+    },
+    'snake': { 
+        sprite: 'snake', 
+        size: 40, 
+        health: 50, 
+        damage: 10,
+        baseSpeed: 85 
+    },
+    'wolf': { 
+        sprite: 'wolf', 
+        size: 48, 
+        health: 70, 
+        damage: 12,
+        baseSpeed: 80 
+    },
+    'worm': { 
+        sprite: 'worm', 
+        size: 36, 
+        health: 45, 
+        damage: 7,
+        baseSpeed: 88 
+    },
+    'orc': { 
+        sprite: 'orc', 
+        size: 56, 
+        health: 85, 
+        damage: 14,
+        baseSpeed: 78 
+    },
+    'skeleton_sword': { 
+        sprite: 'skeleton_sword', 
+        size: 52, 
+        health: 75, 
+        damage: 13,
+        baseSpeed: 82 
+    },
+    'werewolf': { 
+        sprite: 'werewolf', 
+        size: 60, 
+        health: 90, 
+        damage: 16,
+        baseSpeed: 76 
+    },
+    'burning_demon_imp': { 
+        sprite: 'burning_demon_imp', 
+        size: 44, 
+        health: 60, 
+        damage: 11,
+        baseSpeed: 83 
+    },
+    'viking_warrior': { 
+        sprite: 'viking_warrior', 
+        size: 68, 
+        health: 110, 
+        damage: 18,
+        baseSpeed: 73 
+    },
+    'baby_dragon': { 
+        sprite: 'baby_dragon', 
+        size: 72, 
+        health: 120, 
+        damage: 20,
+        baseSpeed: 70 
+    },
+    'big_skeleton': { 
+        sprite: 'big_skeleton', 
+        size: 80, 
+        health: 150, 
+        damage: 25,
+        baseSpeed: 65 
+    },
+    'burning_demon': { 
+        sprite: 'burning_demon', 
+        size: 84, 
+        health: 160, 
+        damage: 28,
+        baseSpeed: 62 
+    },
+    'skeleton_king': { 
+        sprite: 'skeleton_king', 
+        size: 88, 
+        health: 180, 
+        damage: 30,
+        baseSpeed: 60 
+    },
+    'death_angel': { 
+        sprite: 'death_angel', 
+        size: 92, 
+        health: 200, 
+        damage: 35,
+        baseSpeed: 55 
+    },
+    'legendary_dragon': { 
+        sprite: 'legendary_dragon', 
+        size: 120, 
+        health: 300, 
+        damage: 50,
+        baseSpeed: 45 
+    }
+};
+
 class Entity {
     constructor(scene, x, y, texture) {
         this.scene = scene;
@@ -353,17 +482,25 @@ class Player extends Entity {
         if (this.isDying) return;
         this.isDying = true;
         this.isAlive = false;
-        this.sprite.setVelocity(0);
+        this.sprite.setVelocity(0, 0);
         this.sprite.clearTint();
         
-        this.scene.physics.pause();
-        
+        // Start death animation first, then pause physics
         this.playDeathAnimation();
+        
+        // Pause physics after a short delay to not interfere with death animation
+        this.scene.time.delayedCall(100, () => {
+            this.scene.physics.pause();
+        });
     }
     
     playDeathAnimation() {
         if (this.deathAnimationStarted) return;
         this.deathAnimationStarted = true;
+        
+        // Stop all current animations and clear velocity
+        this.sprite.stop();
+        this.sprite.setVelocity(0, 0);
         
         let deathFrame = 0;
         const maxFrames = 10;
@@ -529,21 +666,38 @@ class Player extends Entity {
 }
 
 class Enemy extends Entity {
-    constructor(scene, x, y, enemyType = 'enemy') {
-        super(scene, x, y, 'enemy_sprite');
+    constructor(scene, x, y, enemyType = 'lereon_knight') {
+        const enemyData = ENEMY_TYPES[enemyType] || ENEMY_TYPES['lereon_knight'];
+        
+        super(scene, x, y, enemyData.sprite);
         
         this.enemyType = enemyType;
+        this.enemyData = enemyData;
         this.id = `enemy_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         this.sprite.name = this.id;
-        this.sprite.setDisplaySize(72, 72);
         
-        this.speed = 75;
-        this.health = 100;
+        // Set size based on enemy type
+        this.sprite.setDisplaySize(enemyData.size, enemyData.size);
+        
+        // Calculate speed with randomization based on size (larger = slower)
+        const sizeSpeedModifier = Math.max(0.5, 1 - (enemyData.size - 24) / 200);
+        const randomSpeedVariation = 0.8 + Math.random() * 0.4; // 80%-120% of base speed
+        this.speed = enemyData.baseSpeed * sizeSpeedModifier * randomSpeedVariation;
+        
+        // Set health and damage
+        this.health = enemyData.health;
         this.maxHealth = this.health;
+        this.damage = enemyData.damage;
+        
         this.direction = Math.random() * Math.PI * 2;
         
-        this.collisionRadius = 37.5 * 0.75;
-        this.hurtboxRadius = 35;
+        // Calculate collision and hurtbox based on sprite size
+        const shadowSize = Math.max(30, enemyData.size * 0.6);
+        this.collisionRadius = shadowSize * 0.75;
+        this.hurtboxRadius = Math.max(25, enemyData.size * 0.45);
+        
+        // Update shadow size based on enemy size
+        this.shadow.setSize(shadowSize, shadowSize * 0.5);
         
         this.createPatrolBehavior();
         
@@ -790,7 +944,25 @@ function preload() {
         this.load.image(`death_${i}`, `../sprites/player/Death/HeroKnight_Death_${i}.png`);
     }
     
-    this.load.image('enemy_sprite', '../sprites/enemies/lereon knight.png');
+    // Load enemy sprites
+    this.load.image('lereon_knight', '../sprites/enemies/lereon knight.png');
+    this.load.image('baby_dragon', '../sprites/enemies/baby dragon.png');
+    this.load.image('bat', '../sprites/enemies/bat.png');
+    this.load.image('big_skeleton', '../sprites/enemies/big skeleton.png');
+    this.load.image('burning_demon_imp', '../sprites/enemies/burning demon imp.png');
+    this.load.image('burning_demon', '../sprites/enemies/burning demon.png');
+    this.load.image('death_angel', '../sprites/enemies/death angel.png');
+    this.load.image('legendary_dragon', '../sprites/enemies/legendary dragon.png');
+    this.load.image('orc', '../sprites/enemies/orc.png');
+    this.load.image('skeleton_king', '../sprites/enemies/skeleton king.png');
+    this.load.image('skeleton_sword', '../sprites/enemies/skeleton sword.png');
+    this.load.image('slime', '../sprites/enemies/slime.png');
+    this.load.image('snake', '../sprites/enemies/snake.png');
+    this.load.image('spider', '../sprites/enemies/spider.png');
+    this.load.image('viking_warrior', '../sprites/enemies/viking warrior.png');
+    this.load.image('werewolf', '../sprites/enemies/werewolf.png');
+    this.load.image('wolf', '../sprites/enemies/wolf.png');
+    this.load.image('worm', '../sprites/enemies/worm.png');
 }
 
 function create() {
@@ -876,7 +1048,7 @@ function checkEntityCollisions() {
             if (!player.collisionCooldowns.has(enemyId) || 
                 currentTime - player.collisionCooldowns.get(enemyId) > 1000) {
                 
-                const damage = 15 + (currentDifficulty * 5);
+                const damage = (enemy.damage || 15) + (currentDifficulty * 2);
                 player.takeDamage(damage);
                 player.collisionCooldowns.set(enemyId, currentTime);
                 
@@ -957,13 +1129,37 @@ function spawnEnemies() {
     }
 }
 
+function getRandomEnemyType() {
+    const difficultyBasedTypes = [
+        // Early game (easier enemies)
+        ['slime', 'bat', 'spider', 'snake', 'worm'],
+        // Mid game  
+        ['lereon_knight', 'wolf', 'skeleton_sword', 'orc', 'burning_demon_imp'],
+        // Late game (harder enemies)
+        ['werewolf', 'viking_warrior', 'baby_dragon', 'big_skeleton'],
+        // End game (boss-like enemies)
+        ['burning_demon', 'skeleton_king', 'death_angel', 'legendary_dragon']
+    ];
+    
+    const difficultyLevel = Math.min(3, Math.floor(currentDifficulty / 2));
+    const availableTypes = [];
+    
+    // Add enemy types based on difficulty, with overlap for variety
+    for (let i = 0; i <= difficultyLevel; i++) {
+        availableTypes.push(...difficultyBasedTypes[i]);
+    }
+    
+    return availableTypes[Math.floor(Math.random() * availableTypes.length)];
+}
+
 function spawnSingleEnemy() {
     const angle = Math.random() * Math.PI * 2;
     const distance = 300 + Math.random() * 200;
     const x = player.sprite.x + Math.cos(angle) * distance;
     const y = player.sprite.y + Math.sin(angle) * distance;
     
-    const enemy = new Enemy(this, x, y, 'enemy');
+    const enemyType = getRandomEnemyType();
+    const enemy = new Enemy(this, x, y, enemyType);
     enemies.push(enemy);
     currentEnemyCount++;
     
