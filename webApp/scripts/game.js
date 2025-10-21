@@ -634,6 +634,7 @@ class Projectile {
         this.damage = damage;
         this.speed = 300;
         this.isAlive = true;
+        this.hitTargets = new Set(); // Track which enemies we've already hit
         
         // Create projectile sprite based on weapon type
         this.createProjectileSprite();
@@ -722,17 +723,22 @@ class Projectile {
     
     checkEnemyCollision() {
         enemies.forEach(enemy => {
-            if (enemy.isAlive) {
+            if (enemy.isAlive && !this.hitTargets.has(enemy.id)) {
                 const distance = Phaser.Math.Distance.Between(
                     this.sprite.x, this.sprite.y,
                     enemy.sprite.x, enemy.sprite.y
                 );
                 
                 if (distance < 25) {
+                    this.hitTargets.add(enemy.id); // Mark this enemy as hit
                     enemy.takeDamage(this.damage);
                     this.showHitEffect(enemy);
                     player.showFloatingDamage(enemy, this.damage); // Show floating damage
-                    this.explode();
+                    
+                    // Only explode if this is a single-target weapon
+                    if (!this.weapon.piercing) {
+                        this.explode();
+                    }
                 }
             }
         });
@@ -838,7 +844,7 @@ class Player extends Entity {
         this.speed = 100;
         this.isMoving = false;
         
-        this.level = 4; // Start at level 4 for testing animated enemies
+        this.level = 1; // Start at level 1
         this.experience = 0;
         this.experienceToNext = 100;
         this.maxHealth = 100;
