@@ -146,6 +146,172 @@ const ENEMY_TYPES = {
     }
 };
 
+const ITEM_TYPES = {
+    'berry01blue': {
+        sprite: 'berry01blue',
+        name: 'Frost Berry',
+        category: 'berry',
+        rarity: 'common',
+        effects: {
+            health: () => Math.floor(15 + Math.random() * 25), // 15-40 health
+            speed: () => Math.floor(3 + Math.random() * 7), // 3-10 speed
+        }
+    },
+    'berry02yellow': {
+        sprite: 'berry02yellow',
+        name: 'Lightning Berry',
+        category: 'berry',
+        rarity: 'common',
+        effects: {
+            health: () => Math.floor(10 + Math.random() * 20), // 10-30 health
+            speed: () => Math.floor(8 + Math.random() * 12), // 8-20 speed
+        }
+    },
+    'berry03purple': {
+        sprite: 'berry03purple',
+        name: 'Shadow Berry',
+        category: 'berry',
+        rarity: 'uncommon',
+        effects: {
+            health: () => Math.floor(20 + Math.random() * 30), // 20-50 health
+            maxHealth: () => Math.floor(5 + Math.random() * 15), // 5-20 max health
+        }
+    },
+    'berry04red': {
+        sprite: 'berry04red',
+        name: 'Fire Berry',
+        category: 'berry',
+        rarity: 'uncommon',
+        effects: {
+            health: () => Math.floor(25 + Math.random() * 35), // 25-60 health
+            damage: () => Math.floor(2 + Math.random() * 6), // 2-8 damage
+        }
+    },
+    'gem01orange': {
+        sprite: 'gem01orange',
+        name: 'Amber Gem',
+        category: 'gem',
+        rarity: 'rare',
+        effects: {
+            maxHealth: () => Math.floor(15 + Math.random() * 25), // 15-40 max health
+            speed: () => Math.floor(5 + Math.random() * 10), // 5-15 speed
+        }
+    },
+    'gem02blue': {
+        sprite: 'gem02blue',
+        name: 'Sapphire Gem',
+        category: 'gem',
+        rarity: 'rare',
+        effects: {
+            health: () => Math.floor(40 + Math.random() * 60), // 40-100 health
+            defense: () => Math.floor(3 + Math.random() * 7), // 3-10 defense
+        }
+    },
+    'gem03yellow': {
+        sprite: 'gem03yellow',
+        name: 'Citrine Gem',
+        category: 'gem',
+        rarity: 'rare',
+        effects: {
+            speed: () => Math.floor(12 + Math.random() * 18), // 12-30 speed
+            critChance: () => Math.floor(2 + Math.random() * 8), // 2-10% crit chance
+        }
+    },
+    'gem04purple': {
+        sprite: 'gem04purple',
+        name: 'Amethyst Gem',
+        category: 'gem',
+        rarity: 'epic',
+        effects: {
+            maxHealth: () => Math.floor(25 + Math.random() * 35), // 25-60 max health
+            damage: () => Math.floor(5 + Math.random() * 10), // 5-15 damage
+        }
+    },
+    'gem05red': {
+        sprite: 'gem05red',
+        name: 'Ruby Gem',
+        category: 'gem',
+        rarity: 'epic',
+        effects: {
+            damage: () => Math.floor(8 + Math.random() * 15), // 8-23 damage
+            critDamage: () => Math.floor(10 + Math.random() * 20), // 10-30% crit damage
+        }
+    },
+    'gem06green': {
+        sprite: 'gem06green',
+        name: 'Emerald Gem',
+        category: 'gem',
+        rarity: 'legendary',
+        effects: {
+            health: () => Math.floor(80 + Math.random() * 120), // 80-200 health
+            maxHealth: () => Math.floor(40 + Math.random() * 60), // 40-100 max health
+            speed: () => Math.floor(15 + Math.random() * 25), // 15-40 speed
+        }
+    },
+    'glass01orange': {
+        sprite: 'glass01orange',
+        name: 'Phoenix Elixir',
+        category: 'elixir',
+        rarity: 'rare',
+        effects: {
+            health: () => Math.floor(60 + Math.random() * 80), // 60-140 health
+            regeneration: () => Math.floor(1 + Math.random() * 3), // 1-4 HP per second
+        }
+    },
+    'glass02blue': {
+        sprite: 'glass02blue',
+        name: 'Frost Elixir',
+        category: 'elixir',
+        rarity: 'rare',
+        effects: {
+            defense: () => Math.floor(5 + Math.random() * 10), // 5-15 defense
+            slowResistance: () => Math.floor(20 + Math.random() * 30), // 20-50% slow resistance
+        }
+    },
+    'glass03yellow': {
+        sprite: 'glass03yellow',
+        name: 'Lightning Elixir',
+        category: 'elixir',
+        rarity: 'epic',
+        effects: {
+            speed: () => Math.floor(20 + Math.random() * 30), // 20-50 speed
+            attackSpeed: () => Math.floor(10 + Math.random() * 20), // 10-30% attack speed
+        }
+    },
+    'glass04purple': {
+        sprite: 'glass04purple',
+        name: 'Shadow Elixir',
+        category: 'elixir',
+        rarity: 'epic',
+        effects: {
+            damage: () => Math.floor(10 + Math.random() * 20), // 10-30 damage
+            dodgeChance: () => Math.floor(5 + Math.random() * 15), // 5-20% dodge chance
+        }
+    },
+    'glass05red': {
+        sprite: 'glass05red',
+        name: 'Berserker Elixir',
+        category: 'elixir',
+        rarity: 'legendary',
+        effects: {
+            damage: () => Math.floor(15 + Math.random() * 25), // 15-40 damage
+            speed: () => Math.floor(25 + Math.random() * 35), // 25-60 speed
+            critChance: () => Math.floor(8 + Math.random() * 17), // 8-25% crit chance
+        }
+    },
+    'glass06green': {
+        sprite: 'glass06green',
+        name: 'Vitality Elixir',
+        category: 'elixir',
+        rarity: 'legendary',
+        effects: {
+            maxHealth: () => Math.floor(60 + Math.random() * 90), // 60-150 max health
+            health: () => Math.floor(100 + Math.random() * 150), // 100-250 health
+            regeneration: () => Math.floor(3 + Math.random() * 7), // 3-10 HP per second
+        }
+    }
+};
+
 class Entity {
     constructor(scene, x, y, texture) {
         this.scene = scene;
@@ -216,6 +382,16 @@ class Player extends Entity {
         this.experienceToNext = 100;
         this.maxHealth = 100;
         this.currentHealth = 100;
+        
+        // New stats for items
+        this.baseDamage = 10;
+        this.defense = 0;
+        this.critChance = 5; // 5% base crit chance
+        this.critDamage = 150; // 150% base crit damage
+        this.dodgeChance = 0;
+        this.regeneration = 0; // HP per second
+        this.attackSpeed = 100; // 100% base attack speed
+        this.slowResistance = 0;
         
         this.inventory = [];
         this.maxInventorySize = 10;
@@ -365,11 +541,7 @@ class Player extends Entity {
         title.setScrollFactor(0);
         title.setDepth(2001);
         
-        const items = [
-            { name: 'Health Potion', description: '+50 Health' },
-            { name: 'Speed Boost', description: '+20 Speed' },
-            { name: 'Strength Ring', description: '+25 Damage' }
-        ];
+        const items = this.getRandomItems(3);
         
         const uiElements = [overlay, title];
         let choiceMade = false;
@@ -429,6 +601,90 @@ class Player extends Entity {
         });
     }
     
+    getRandomItems(count = 3) {
+        const rarityWeights = {
+            'common': 50,
+            'uncommon': 30,
+            'rare': 15,
+            'epic': 4,
+            'legendary': 1
+        };
+        
+        const allItemKeys = Object.keys(ITEM_TYPES);
+        const selectedItems = [];
+        
+        for (let i = 0; i < count; i++) {
+            let attempts = 0;
+            let selectedItem = null;
+            
+            while (!selectedItem && attempts < 20) {
+                const randomKey = allItemKeys[Math.floor(Math.random() * allItemKeys.length)];
+                const itemData = ITEM_TYPES[randomKey];
+                
+                const rarityWeight = rarityWeights[itemData.rarity] || 1;
+                const chance = Math.random() * 100;
+                
+                if (chance < rarityWeight) {
+                    const randomizedItem = {
+                        id: randomKey,
+                        sprite: itemData.sprite,
+                        name: itemData.name,
+                        category: itemData.category,
+                        rarity: itemData.rarity,
+                        effects: {},
+                        description: ''
+                    };
+                    
+                    // Randomize effects
+                    const effectDescriptions = [];
+                    for (const [effectType, effectFunc] of Object.entries(itemData.effects)) {
+                        const value = effectFunc();
+                        randomizedItem.effects[effectType] = value;
+                        
+                        const sign = value > 0 ? '+' : '';
+                        switch (effectType) {
+                            case 'health': effectDescriptions.push(`${sign}${value} Health`); break;
+                            case 'maxHealth': effectDescriptions.push(`${sign}${value} Max Health`); break;
+                            case 'speed': effectDescriptions.push(`${sign}${value} Speed`); break;
+                            case 'damage': effectDescriptions.push(`${sign}${value} Damage`); break;
+                            case 'defense': effectDescriptions.push(`${sign}${value} Defense`); break;
+                            case 'critChance': effectDescriptions.push(`${sign}${value}% Crit Chance`); break;
+                            case 'critDamage': effectDescriptions.push(`${sign}${value}% Crit Damage`); break;
+                            case 'dodgeChance': effectDescriptions.push(`${sign}${value}% Dodge Chance`); break;
+                            case 'regeneration': effectDescriptions.push(`${sign}${value} HP/sec Regen`); break;
+                            case 'attackSpeed': effectDescriptions.push(`${sign}${value}% Attack Speed`); break;
+                            case 'slowResistance': effectDescriptions.push(`${sign}${value}% Slow Resist`); break;
+                        }
+                    }
+                    
+                    randomizedItem.description = effectDescriptions.join(', ');
+                    selectedItem = randomizedItem;
+                }
+                attempts++;
+            }
+            
+            if (selectedItem) {
+                selectedItems.push(selectedItem);
+            } else {
+                // Fallback to a common item if we couldn't get anything
+                const fallbackKey = 'berry01blue';
+                const itemData = ITEM_TYPES[fallbackKey];
+                const fallbackItem = {
+                    id: fallbackKey,
+                    sprite: itemData.sprite,
+                    name: itemData.name,
+                    category: itemData.category,
+                    rarity: itemData.rarity,
+                    effects: { health: 20 },
+                    description: '+20 Health'
+                };
+                selectedItems.push(fallbackItem);
+            }
+        }
+        
+        return selectedItems;
+    }
+    
     addToInventory(item) {
         if (this.inventory.length < this.maxInventorySize) {
             this.inventory.push(item);
@@ -438,16 +694,47 @@ class Player extends Entity {
     }
     
     applyItemEffect(item) {
-        switch (item.name) {
-            case 'Health Potion':
-                this.currentHealth = Math.min(this.currentHealth + 50, this.maxHealth);
-                break;
-            case 'Speed Boost':
-                this.speed += 20;
-                break;
-            case 'Strength Ring':
-                break;
+        if (!item.effects) return;
+        
+        for (const [effectType, value] of Object.entries(item.effects)) {
+            switch (effectType) {
+                case 'health':
+                    this.currentHealth = Math.min(this.currentHealth + value, this.maxHealth);
+                    break;
+                case 'maxHealth':
+                    this.maxHealth += value;
+                    this.currentHealth = Math.min(this.currentHealth + value, this.maxHealth); // Also heal when max health increases
+                    break;
+                case 'speed':
+                    this.speed += value;
+                    break;
+                case 'damage':
+                    this.baseDamage += value;
+                    break;
+                case 'defense':
+                    this.defense += value;
+                    break;
+                case 'critChance':
+                    this.critChance += value;
+                    break;
+                case 'critDamage':
+                    this.critDamage += value;
+                    break;
+                case 'dodgeChance':
+                    this.dodgeChance += value;
+                    break;
+                case 'regeneration':
+                    this.regeneration += value;
+                    break;
+                case 'attackSpeed':
+                    this.attackSpeed += value;
+                    break;
+                case 'slowResistance':
+                    this.slowResistance += value;
+                    break;
+            }
         }
+        
         this.updateUI();
     }
     
@@ -963,6 +1250,24 @@ function preload() {
     this.load.image('werewolf', '../sprites/enemies/werewolf.png');
     this.load.image('wolf', '../sprites/enemies/wolf.png');
     this.load.image('worm', '../sprites/enemies/worm.png');
+    
+    // Load item sprites
+    this.load.image('berry01blue', '../sprites/items/berry01blue.gif');
+    this.load.image('berry02yellow', '../sprites/items/berry02yellow.gif');
+    this.load.image('berry03purple', '../sprites/items/berry03purple.gif');
+    this.load.image('berry04red', '../sprites/items/berry04red.gif');
+    this.load.image('gem01orange', '../sprites/items/gem01orange.gif');
+    this.load.image('gem02blue', '../sprites/items/gem02blue.gif');
+    this.load.image('gem03yellow', '../sprites/items/gem03yellow.gif');
+    this.load.image('gem04purple', '../sprites/items/gem04purple.gif');
+    this.load.image('gem05red', '../sprites/items/gem05red.gif');
+    this.load.image('gem06green', '../sprites/items/gem06green.gif');
+    this.load.image('glass01orange', '../sprites/items/glass01orange.gif');
+    this.load.image('glass02blue', '../sprites/items/glass02blue.gif');
+    this.load.image('glass03yellow', '../sprites/items/glass03yellow.gif');
+    this.load.image('glass04purple', '../sprites/items/glass04purple.gif');
+    this.load.image('glass05red', '../sprites/items/glass05red.gif');
+    this.load.image('glass06green', '../sprites/items/glass06green.gif');
 }
 
 function create() {
