@@ -143,6 +143,30 @@ const ENEMY_TYPES = {
         health: 300, 
         damage: 50,
         baseSpeed: 45 
+    },
+    'skeleton_sword_animated': {
+        sprite: 'skeleton_sword_walk_1',
+        size: 54,
+        health: 80,
+        damage: 14,
+        baseSpeed: 80,
+        animated: true,
+        animations: {
+            walk: 'skeleton_sword_walk',
+            attack: 'skeleton_sword_attack'
+        }
+    },
+    'demon_axe_red': {
+        sprite: 'demon_axe_walk_1',
+        size: 68,
+        health: 110,
+        damage: 22,
+        baseSpeed: 74,
+        animated: true,
+        animations: {
+            walk: 'demon_axe_walk',
+            attack: 'demon_axe_attack'
+        }
     }
 };
 
@@ -377,11 +401,12 @@ class Player extends Entity {
         this.speed = 100;
         this.isMoving = false;
         
-        this.level = 1;
+        this.level = 4; // Start at level 4 for testing animated enemies
         this.experience = 0;
         this.experienceToNext = 100;
         this.maxHealth = 100;
         this.currentHealth = 100;
+        this.killCount = 0; // Track enemy kills
         
         // New stats for items
         this.baseDamage = 10;
@@ -421,6 +446,20 @@ class Player extends Entity {
         this.levelText = this.scene.add.text(16, 85, `Level: ${this.level}`, {
             fontSize: '18px',
             fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 2
+        });
+        
+        this.killCountText = this.scene.add.text(16, 110, `Kills: ${this.killCount}`, {
+            fontSize: '18px',
+            fill: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 2
+        });
+        
+        this.difficultyText = this.scene.add.text(16, 135, `Difficulty: ${getDifficultyLevel()}`, {
+            fontSize: '18px',
+            fill: '#ff4444',
             stroke: '#000000',
             strokeThickness: 2
         });
@@ -496,6 +535,8 @@ class Player extends Entity {
         this.xpText.setText(`XP: ${this.experience}/${this.experienceToNext}`);
         
         this.levelText.setText(`Level: ${this.level}`);
+        this.killCountText.setText(`Kills: ${this.killCount}`);
+        this.difficultyText.setText(`Difficulty: ${getDifficultyLevel()}`);
     }
     
     gainExperience(amount) {
@@ -505,6 +546,11 @@ class Player extends Entity {
             this.levelUp();
         }
         
+        this.updateUI();
+    }
+    
+    incrementKillCount() {
+        this.killCount++;
         this.updateUI();
     }
     
@@ -523,72 +569,135 @@ class Player extends Entity {
     showLevelUpSelection() {
         this.scene.physics.pause();
         
+        // Larger overlay covering most of the screen
+        const screenWidth = this.scene.cameras.main.width;
+        const screenHeight = this.scene.cameras.main.height;
+        
         const overlay = this.scene.add.rectangle(
             this.scene.cameras.main.centerX,
             this.scene.cameras.main.centerY,
-            400, 300, 0x000000, 0.8
+            screenWidth * 0.9, screenHeight * 0.8, 0x000000, 0.85
         );
         overlay.setScrollFactor(0);
         overlay.setDepth(2000);
         
+        // Title with larger font
         const title = this.scene.add.text(
             this.scene.cameras.main.centerX,
-            this.scene.cameras.main.centerY - 100,
-            'LEVEL UP! Choose an item:',
-            { fontSize: '24px', fill: '#ffffff' }
+            this.scene.cameras.main.centerY - (screenHeight * 0.3),
+            'LEVEL UP! Choose an Upgrade:',
+            { fontSize: '32px', fill: '#ffffff', fontStyle: 'bold' }
         );
         title.setOrigin(0.5);
         title.setScrollFactor(0);
         title.setDepth(2001);
         
         const items = this.getRandomItems(3);
-        
         const uiElements = [overlay, title];
         let choiceMade = false;
         
+        // Rarity colors
+        const rarityColors = {
+            'common': 0x808080,      // Gray
+            'uncommon': 0x00ff00,    // Green  
+            'rare': 0x0080ff,        // Blue
+            'epic': 0x8000ff,        // Purple
+            'legendary': 0xff8000     // Orange
+        };
+        
+        const rarityBorderColors = {
+            'common': 0xa0a0a0,
+            'uncommon': 0x40ff40,
+            'rare': 0x4080ff,
+            'epic': 0xa040ff,
+            'legendary': 0xff9040
+        };
+        
         items.forEach((item, index) => {
-            const button = this.scene.add.rectangle(
-                this.scene.cameras.main.centerX,
-                this.scene.cameras.main.centerY - 20 + (index * 50),
-                300, 40, 0x333333
-            );
-            button.setScrollFactor(0);
-            button.setDepth(2001);
-            button.setInteractive();
+            const baseX = this.scene.cameras.main.centerX + (index - 1) * 280; // Spread items across width
+            const baseY = this.scene.cameras.main.centerY;
             
-            button.on('pointerover', () => {
+            // Get rarity colors
+            const bgColor = rarityColors[item.rarity] || rarityColors.common;
+            const borderColor = rarityBorderColors[item.rarity] || rarityBorderColors.common;
+            
+            // Main item container - larger boxes
+            const itemContainer = this.scene.add.rectangle(baseX, baseY, 240, 320, bgColor, 0.15);
+            itemContainer.setScrollFactor(0);
+            itemContainer.setDepth(2001);
+            itemContainer.setStrokeStyle(3, borderColor);
+            itemContainer.setInteractive();
+            
+            // Item sprite
+            const itemSprite = this.scene.add.image(baseX, baseY - 80, item.sprite);
+            itemSprite.setScrollFactor(0);
+            itemSprite.setDepth(2003);
+            itemSprite.setScale(2); // Make sprites larger and visible
+            
+            // Item name with rarity color
+            const nameText = this.scene.add.text(baseX, baseY - 20, item.name, {
+                fontSize: '18px',
+                fill: '#ffffff',
+                fontStyle: 'bold',
+                align: 'center'
+            });
+            nameText.setOrigin(0.5);
+            nameText.setScrollFactor(0);
+            nameText.setDepth(2003);
+            
+            // Rarity label
+            const rarityText = this.scene.add.text(baseX, baseY + 5, item.rarity.toUpperCase(), {
+                fontSize: '14px',
+                fill: `#${borderColor.toString(16).padStart(6, '0')}`,
+                fontStyle: 'bold',
+                align: 'center'
+            });
+            rarityText.setOrigin(0.5);
+            rarityText.setScrollFactor(0);
+            rarityText.setDepth(2003);
+            
+            // Description with word wrap
+            const descText = this.scene.add.text(baseX, baseY + 50, item.description, {
+                fontSize: '14px',
+                fill: '#cccccc',
+                align: 'center',
+                wordWrap: { width: 200 }
+            });
+            descText.setOrigin(0.5);
+            descText.setScrollFactor(0);
+            descText.setDepth(2003);
+            
+            // Hover effects
+            itemContainer.on('pointerover', () => {
                 if (!choiceMade) {
-                    button.setFillStyle(0x555555);
+                    itemContainer.setFillStyle(bgColor, 0.3);
+                    itemContainer.setStrokeStyle(4, borderColor);
+                    itemSprite.setScale(2.2); // Slightly larger on hover
                 }
             });
             
-            button.on('pointerout', () => {
+            itemContainer.on('pointerout', () => {
                 if (!choiceMade) {
-                    button.setFillStyle(0x333333);
+                    itemContainer.setFillStyle(bgColor, 0.15);
+                    itemContainer.setStrokeStyle(3, borderColor);
+                    itemSprite.setScale(2);
                 }
             });
             
-            const text = this.scene.add.text(
-                this.scene.cameras.main.centerX,
-                this.scene.cameras.main.centerY - 20 + (index * 50),
-                `${item.name} - ${item.description}`,
-                { fontSize: '16px', fill: '#ffffff' }
-            );
-            text.setOrigin(0.5);
-            text.setScrollFactor(0);
-            text.setDepth(2002);
+            uiElements.push(itemContainer, itemSprite, nameText, rarityText, descText);
             
-            uiElements.push(button, text);
-            
-            button.on('pointerdown', () => {
+            // Selection handler
+            itemContainer.on('pointerdown', () => {
                 if (choiceMade) return;
                 choiceMade = true;
                 
-                button.setFillStyle(0x00ff00);
+                // Highlight selected item
+                itemContainer.setFillStyle(0x00ff00, 0.4);
+                itemContainer.setStrokeStyle(5, 0x00ff00);
                 
                 this.addToInventory(item);
                 
-                this.scene.time.delayedCall(200, () => {
+                this.scene.time.delayedCall(300, () => {
                     uiElements.forEach(element => {
                         if (element && element.destroy) {
                             element.destroy();
@@ -963,32 +1072,50 @@ class Enemy extends Entity {
         this.id = `enemy_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         this.sprite.name = this.id;
         
-        // Set size based on enemy type
-        this.sprite.setDisplaySize(enemyData.size, enemyData.size);
+        // Apply difficulty scaling to stats (all stats except speed)
+        const difficulty = getDifficultyLevel();
+        const difficultyMultiplier = 1 + ((difficulty - 1) * 0.15); // 15% increase per difficulty level
         
-        // Calculate speed with randomization based on size (larger = slower)
+        // Calculate sprite scale based on enemy density/HP (larger/denser enemies get bigger)
+        const baseScale = 1.0;
+        const densityFactor = (enemyData.health + enemyData.size) / 100; // Combine HP and size for density
+        const scaleBonus = densityFactor > 1.5 ? 0.5 : 0; // 50% larger if dense/high HP
+        const finalScale = baseScale + scaleBonus;
+        
+        // Set size based on enemy type with scaling
+        const scaledSize = enemyData.size * finalScale;
+        this.sprite.setDisplaySize(scaledSize, scaledSize);
+        
+        // Calculate speed with randomization and slight difficulty scaling (5% per level)
         const sizeSpeedModifier = Math.max(0.5, 1 - (enemyData.size - 24) / 200);
         const randomSpeedVariation = 0.8 + Math.random() * 0.4; // 80%-120% of base speed
-        this.speed = enemyData.baseSpeed * sizeSpeedModifier * randomSpeedVariation;
+        const speedDifficultyBonus = 1 + ((difficulty - 1) * 0.05); // Small speed increase with difficulty
+        this.speed = enemyData.baseSpeed * sizeSpeedModifier * randomSpeedVariation * speedDifficultyBonus;
         
-        // Set health and damage
-        this.health = enemyData.health;
+        // Set health and damage with difficulty scaling
+        this.health = Math.floor(enemyData.health * difficultyMultiplier);
         this.maxHealth = this.health;
-        this.damage = enemyData.damage;
+        this.damage = Math.floor(enemyData.damage * difficultyMultiplier);
         
         this.direction = Math.random() * Math.PI * 2;
         
-        // Calculate collision and hurtbox based on sprite size
-        const shadowSize = Math.max(30, enemyData.size * 0.6);
+        // Calculate collision and hurtbox based on scaled sprite size
+        const shadowSize = Math.max(30, scaledSize * 0.6);
         this.collisionRadius = shadowSize * 0.75;
-        this.hurtboxRadius = Math.max(25, enemyData.size * 0.45);
+        this.hurtboxRadius = Math.max(25, scaledSize * 0.45);
         
-        // Update shadow size based on enemy size
+        // Update shadow size based on scaled enemy size
         this.shadow.setSize(shadowSize, shadowSize * 0.5);
         
         this.createPatrolBehavior();
         
         this.createHPBar();
+        
+        // Create animations if this enemy type supports them
+        if (enemyData.animated) {
+            this.createAnimations();
+            this.sprite.play(`${enemyType}_walk`);
+        }
     }
     
     createHPBar() {
@@ -997,6 +1124,48 @@ class Enemy extends Entity {
         
         this.hpBarFill = this.scene.add.rectangle(0, -40, 50, 6, 0xff0000);
         this.hpBarFill.setDepth(1000);
+    }
+    
+    createAnimations() {
+        const animPrefix = this.enemyData.animations;
+        
+        if (animPrefix.walk) {
+            const walkKey = `${this.enemyType}_walk`;
+            if (!this.scene.anims.exists(walkKey)) {
+                this.scene.anims.create({
+                    key: walkKey,
+                    frames: [
+                        { key: `${animPrefix.walk}_1` },
+                        { key: `${animPrefix.walk}_2` },
+                        { key: `${animPrefix.walk}_3` },
+                        { key: `${animPrefix.walk}_4` },
+                        { key: `${animPrefix.walk}_5` },
+                        { key: `${animPrefix.walk}_6` }
+                    ],
+                    frameRate: 8,
+                    repeat: -1
+                });
+            }
+        }
+        
+        if (animPrefix.attack) {
+            const attackKey = `${this.enemyType}_attack`;
+            if (!this.scene.anims.exists(attackKey)) {
+                this.scene.anims.create({
+                    key: attackKey,
+                    frames: [
+                        { key: `${animPrefix.attack}_1` },
+                        { key: `${animPrefix.attack}_2` },
+                        { key: `${animPrefix.attack}_3` },
+                        { key: `${animPrefix.attack}_4` },
+                        { key: `${animPrefix.attack}_5` },
+                        { key: `${animPrefix.attack}_6` }
+                    ],
+                    frameRate: 12,
+                    repeat: 0
+                });
+            }
+        }
     }
     
     updateHPBar() {
@@ -1097,10 +1266,23 @@ class Enemy extends Entity {
             
             this.sprite.setVelocity(moveX, moveY);
             
+            // Handle sprite flipping
             if (moveX < -5) {
                 this.sprite.setFlipX(true);
             } else if (moveX > 5) {
                 this.sprite.setFlipX(false);
+            }
+            
+            // Handle animations for animated enemies
+            if (this.enemyData.animated) {
+                const isMoving = Math.abs(moveX) > 5 || Math.abs(moveY) > 5;
+                const walkAnimKey = `${this.enemyType}_walk`;
+                
+                if (isMoving && (!this.sprite.anims.isPlaying || this.sprite.anims.currentAnim.key !== walkAnimKey)) {
+                    if (this.scene.anims.exists(walkAnimKey)) {
+                        this.sprite.play(walkAnimKey);
+                    }
+                }
             }
             
             this.updateHPBar();
@@ -1134,6 +1316,7 @@ class Enemy extends Entity {
         
         if (player) {
             player.gainExperience(25 + (currentDifficulty * 10));
+            player.incrementKillCount(); // Track kill count for difficulty scaling
         }
         
         currentEnemyCount--;
@@ -1166,7 +1349,7 @@ let tileLayers = {};
 let tilesets = {};
 
 let enemies = [];
-let currentDifficulty = 1;
+let currentDifficulty = 2; // Start at difficulty 2 for testing animated enemies
 let maxEnemies = 5;
 let currentEnemyCount = 0;
 
@@ -1231,7 +1414,7 @@ function preload() {
         this.load.image(`death_${i}`, `../sprites/player/Death/HeroKnight_Death_${i}.png`);
     }
     
-    // Load enemy sprites
+    // Load enemy sprites (SINGLE PNG FILES ONLY)
     this.load.image('lereon_knight', '../sprites/enemies/lereon knight.png');
     this.load.image('baby_dragon', '../sprites/enemies/baby dragon.png');
     this.load.image('bat', '../sprites/enemies/bat.png');
@@ -1250,6 +1433,14 @@ function preload() {
     this.load.image('werewolf', '../sprites/enemies/werewolf.png');
     this.load.image('wolf', '../sprites/enemies/wolf.png');
     this.load.image('worm', '../sprites/enemies/worm.png');
+    
+    // Load animated enemy frames
+    for (let i = 1; i <= 6; i++) {
+        this.load.image(`skeleton_sword_walk_${i}`, `../sprites/enemies/skeleton_sword/walk_${i}.png`);
+        this.load.image(`skeleton_sword_attack_${i}`, `../sprites/enemies/skeleton_sword/attack1_${i}.png`);
+        this.load.image(`demon_axe_walk_${i}`, `../sprites/enemies/demon_axe_red/walk_${i}.png`);
+        this.load.image(`demon_axe_attack_${i}`, `../sprites/enemies/demon_axe_red/attack1_${i}.png`);
+    }
     
     // Load item sprites
     this.load.image('berry01blue', '../sprites/items/berry01blue.gif');
@@ -1322,7 +1513,12 @@ function update() {
 }
 
 function getDifficultyLevel() {
-    return Math.floor(player.level / 3) + 1;
+    // Advanced difficulty calculation based on kills, level, and time
+    const levelFactor = Math.floor(player.level / 2); // Every 2 levels increases difficulty
+    const killFactor = Math.floor(player.killCount / 20); // Every 20 kills increases difficulty
+    const timeFactor = Math.floor(player.scene.gameTimer / 120); // Every 2 minutes increases difficulty
+    
+    return Math.max(1, levelFactor + killFactor + timeFactor + 1);
 }
 
 function updateDifficulty() {
@@ -1439,9 +1635,9 @@ function getRandomEnemyType() {
         // Early game (easier enemies)
         ['slime', 'bat', 'spider', 'snake', 'worm'],
         // Mid game  
-        ['lereon_knight', 'wolf', 'skeleton_sword', 'orc', 'burning_demon_imp'],
+        ['lereon_knight', 'wolf', 'skeleton_sword', 'orc', 'burning_demon_imp', 'skeleton_sword_animated'],
         // Late game (harder enemies)
-        ['werewolf', 'viking_warrior', 'baby_dragon', 'big_skeleton'],
+        ['werewolf', 'viking_warrior', 'baby_dragon', 'big_skeleton', 'demon_axe_red'],
         // End game (boss-like enemies)
         ['burning_demon', 'skeleton_king', 'death_angel', 'legendary_dragon']
     ];
