@@ -38,10 +38,8 @@ function preload() {
     this.load.image('grass2', '../background/bgtile.png');
     this.load.image('grass3', '../background/bgtile.png');
     this.load.image('grass4', '../background/bgtile.png');
-    
-    // Load player sprite sheets for animation
-    this.load.spritesheet('player_idle', '../sprites/player/Idle/HeroKnight_Idle_0.png', { frameWidth: 128, frameHeight: 128 });
-    this.load.spritesheet('player_run', '../sprites/player/Run/HeroKnight_Run_0.png', { frameWidth: 128, frameHeight: 128 });
+    this.load.image('grass5', '../background/bgtile.png');
+    this.load.image('grass6', '../background/bgtile.png');
     
     // Load all idle frames for animation
     for (let i = 0; i < 8; i++) {
@@ -68,9 +66,11 @@ function create() {
     tilesets.grass2 = tilemap.addTilesetImage('grass2', 'grass2', TILE_SIZE, TILE_SIZE);
     tilesets.grass3 = tilemap.addTilesetImage('grass3', 'grass3', TILE_SIZE, TILE_SIZE);
     tilesets.grass4 = tilemap.addTilesetImage('grass4', 'grass4', TILE_SIZE, TILE_SIZE);
+    tilesets.grass5 = tilemap.addTilesetImage('grass5', 'grass5', TILE_SIZE, TILE_SIZE);
+    tilesets.grass6 = tilemap.addTilesetImage('grass6', 'grass6', TILE_SIZE, TILE_SIZE);
     
     // Create layer for grass tiles
-    tileLayers.background = tilemap.createBlankLayer('background', [tilesets.grass1, tilesets.grass2, tilesets.grass3, tilesets.grass4]);
+    tileLayers.background = tilemap.createBlankLayer('background', [tilesets.grass1, tilesets.grass2, tilesets.grass3, tilesets.grass4, tilesets.grass5, tilesets.grass6]);
     
     // Apply different tints to create grass variety
     this.load.on('complete', () => {
@@ -241,6 +241,12 @@ function generateChunk(chunkX, chunkY) {
                 case 4:
                     tileset = tilesets.grass4;
                     break;
+                case 5:
+                    tileset = tilesets.grass5;
+                    break;
+                case 6:
+                    tileset = tilesets.grass6;
+                    break;
                 default:
                     tileset = tilesets.grass1;
             }
@@ -248,20 +254,26 @@ function generateChunk(chunkX, chunkY) {
             // Place grass tile using tilemap
             const tile = tileLayers.background.putTileAt(tileset.firstgid, tileX, tileY);
             
-            // Apply slight tint variations for more variety
+            // Apply cohesive tint variations for regional colors
             if (tile) {
                 switch (grassVariant) {
                     case 1:
-                        tile.tint = 0x90EE90; // Light green
+                        tile.tint = 0x90EE90; // Light green region
                         break;
                     case 2:
-                        tile.tint = 0x228B22; // Forest green
+                        tile.tint = 0x228B22; // Forest green region
                         break;
                     case 3:
-                        tile.tint = 0x32CD32; // Lime green
+                        tile.tint = 0x32CD32; // Lime green region
                         break;
                     case 4:
-                        tile.tint = 0x9ACD32; // Yellow green
+                        tile.tint = 0x9ACD32; // Yellow green region
+                        break;
+                    case 5:
+                        tile.tint = 0x6B8E23; // Olive green region
+                        break;
+                    case 6:
+                        tile.tint = 0x7CFC00; // Lawn green region
                         break;
                 }
             }
@@ -272,28 +284,24 @@ function generateChunk(chunkX, chunkY) {
 }
 
 function generateGrassVariant(x, y) {
-    // Use multiple layers of noise for more erratic, varied terrain
-    const noise1 = Math.sin(x * 0.08) * Math.cos(y * 0.08);
-    const noise2 = Math.sin(x * 0.03 + 100) * Math.cos(y * 0.03 + 100);
-    const noise3 = Math.sin(x * 0.15 + 200) * Math.cos(y * 0.15 + 200);
-    const noise4 = Math.sin(x * 0.05 + 300) * Math.cos(y * 0.12 + 300);
+    // Use simpler noise for reliable regional grass types
+    const noise1 = Math.sin(x * 0.005) * Math.cos(y * 0.005);
+    const noise2 = Math.sin(x * 0.002 + 1000) * Math.cos(y * 0.002 + 1000);
+    const combinedNoise = (noise1 + noise2) / 2;
     
-    // Combine multiple noise layers for more erratic patterns
-    const combinedNoise = (noise1 * 0.4 + noise2 * 0.3 + noise3 * 0.2 + noise4 * 0.1);
-    
-    // Add some random variation for even more variety
-    const randomFactor = (Math.sin(x * 0.234) * Math.cos(y * 0.567)) * 0.3;
-    const finalNoise = combinedNoise + randomFactor;
-    
-    // Map noise to grass variants with more distinct thresholds
-    if (finalNoise > 0.4) {
+    // Create 6 distinct grass regions
+    if (combinedNoise > 0.6) {
         return 1;
-    } else if (finalNoise > 0.1) {
+    } else if (combinedNoise > 0.2) {
         return 2;
-    } else if (finalNoise > -0.2) {
+    } else if (combinedNoise > -0.1) {
         return 3;
-    } else {
+    } else if (combinedNoise > -0.4) {
         return 4;
+    } else if (combinedNoise > -0.7) {
+        return 5;
+    } else {
+        return 6;
     }
 }
 
