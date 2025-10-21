@@ -1,6 +1,3 @@
-let player;
-let cursors;
-
 const config = {
     type: phaser.Auto,
     width: 800,
@@ -12,3 +9,19 @@ const config = {
         update: update
     }
 };
+
+let robot;
+let cursors;
+let speed = 3;
+
+function preload(){
+
+}
+
+function create() {
+
+}
+
+function update() {
+
+}
