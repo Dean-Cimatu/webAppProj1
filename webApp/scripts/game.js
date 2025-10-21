@@ -23,8 +23,8 @@ class Entity {
         this.x = x;
         this.y = y;
         
-        this.shadow = scene.add.ellipse(x + 5, y + 20, 30, 15, 0x000000, 0.3);
-        this.shadow.setDepth(-1);
+        this.shadow = scene.add.ellipse(x, y + 35, 50, 25, 0x000000, 0.8);
+        this.shadow.setDepth(0.5);
         
         this.sprite = scene.physics.add.sprite(x, y, texture);
         this.sprite.setDepth(1);
@@ -40,8 +40,8 @@ class Entity {
     
     update() {
         if (this.shadow && this.sprite) {
-            this.shadow.x = this.sprite.x + 5;
-            this.shadow.y = this.sprite.y + 20;
+            this.shadow.x = this.sprite.x;
+            this.shadow.y = this.sprite.y + 35;
         }
     }
     
@@ -54,8 +54,20 @@ class Entity {
     setPosition(x, y) {
         this.sprite.x = x;
         this.sprite.y = y;
-        this.shadow.x = x + 5;
-        this.shadow.y = y + 20;
+        this.shadow.x = x;
+        this.shadow.y = y + 35;
+    }
+    
+    checkCollisionWith(otherEntity) {
+        if (!this.isAlive || !otherEntity.isAlive) return false;
+        
+        const distance = Phaser.Math.Distance.Between(
+            this.sprite.x, this.sprite.y,
+            otherEntity.sprite.x, otherEntity.sprite.y
+        );
+        
+        const minDistance = (this.sprite.width + otherEntity.sprite.width) * 0.3;
+        return distance < minDistance;
     }
 }
 
@@ -78,10 +90,13 @@ class Player extends Entity {
         this.inventory = [];
         this.maxInventorySize = 10;
         
+        this.collisionCooldowns = new Map();
+        
         this.createAnimations();
         this.sprite.play('idle');
         
         this.createUI();
+        this.updateUI();
     }
     
     createUI() {
@@ -121,9 +136,10 @@ class Player extends Entity {
         this.xpBarBg.setScrollFactor(0);
         this.xpBarBg.setDepth(1000);
         
-        this.xpBar = this.scene.add.rectangle(screenWidth / 2, 20, screenWidth - 40, 20, 0x00aaff);
+        this.xpBar = this.scene.add.rectangle(screenWidth / 2, 20, screenWidth - 40, 20, 0x00ff00);
         this.xpBar.setScrollFactor(0);
         this.xpBar.setDepth(1001);
+        this.xpBar.scaleX = 0;
         
         this.xpText = this.scene.add.text(screenWidth / 2, 20, `XP: ${this.experience}/${this.experienceToNext}`, {
             fontSize: '14px',
@@ -225,6 +241,9 @@ class Player extends Entity {
             { name: 'Strength Ring', description: '+25 Damage' }
         ];
         
+        const uiElements = [overlay, title];
+        let choiceMade = false;
+        
         items.forEach((item, index) => {
             const button = this.scene.add.rectangle(
                 this.scene.cameras.main.centerX,
@@ -234,6 +253,18 @@ class Player extends Entity {
             button.setScrollFactor(0);
             button.setDepth(2001);
             button.setInteractive();
+            
+            button.on('pointerover', () => {
+                if (!choiceMade) {
+                    button.setFillStyle(0x555555);
+                }
+            });
+            
+            button.on('pointerout', () => {
+                if (!choiceMade) {
+                    button.setFillStyle(0x333333);
+                }
+            });
             
             const text = this.scene.add.text(
                 this.scene.cameras.main.centerX,
@@ -245,13 +276,25 @@ class Player extends Entity {
             text.setScrollFactor(0);
             text.setDepth(2002);
             
+            uiElements.push(button, text);
+            
             button.on('pointerdown', () => {
+                if (choiceMade) return;
+                choiceMade = true;
+                
+                button.setFillStyle(0x00ff00);
+                
                 this.addToInventory(item);
-                overlay.destroy();
-                title.destroy();
-                button.destroy();
-                text.destroy();
-                this.scene.physics.resume();
+                
+                this.scene.time.delayedCall(200, () => {
+                    uiElements.forEach(element => {
+                        if (element && element.destroy) {
+                            element.destroy();
+                        }
+                    });
+                    
+                    this.scene.physics.resume();
+                });
             });
         });
     }
@@ -464,6 +507,8 @@ class Enemy extends Entity {
         super(scene, x, y, 'enemy_sprite');
         
         this.enemyType = enemyType;
+        this.id = `enemy_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        this.sprite.name = this.id;
         this.sprite.setDisplaySize(72, 72);
         
         this.speed = 50;
@@ -658,6 +703,7 @@ function create() {
     tilesets.grass = tilemap.addTilesetImage('grass', 'grass', TILE_SIZE, TILE_SIZE);
     
     tileLayers.background = tilemap.createBlankLayer('background', [tilesets.grass]);
+    tileLayers.background.setDepth(-1);
     
     player = new Player(this, 1000 * TILE_SIZE, 1000 * TILE_SIZE);
     
@@ -682,6 +728,8 @@ function update() {
         player.handleInput(cursors);
         player.update();
         player.updateHPBar();
+        
+        checkEntityCollisions.call(this);
     }
     
     enemies.forEach(enemy => {
@@ -705,6 +753,59 @@ function updateDifficulty() {
         currentDifficulty = newDifficulty;
         maxEnemies = Math.min(5 + (currentDifficulty * 2), 15);
     }
+}
+
+function checkEntityCollisions() {
+    if (!player || !player.isAlive) return;
+    
+    enemies.forEach(enemy => {
+        if (!enemy.isAlive) return;
+        
+        if (player.checkCollisionWith(enemy)) {
+            const enemyId = enemy.id;
+            const currentTime = this.time.now;
+            
+            if (!player.collisionCooldowns.has(enemyId) || 
+                currentTime - player.collisionCooldowns.get(enemyId) > 1000) {
+                
+                player.takeDamage(10 + (currentDifficulty * 5));
+                player.collisionCooldowns.set(enemyId, currentTime);
+                
+                enemy.sprite.setTint(0xffaaaa);
+                this.time.delayedCall(200, () => {
+                    if (enemy.isAlive) {
+                        enemy.sprite.setTint(0xff6666);
+                    }
+                });
+            }
+        }
+    });
+    
+    enemies.forEach((enemy1, index1) => {
+        enemies.slice(index1 + 1).forEach(enemy2 => {
+            if (enemy1.isAlive && enemy2.isAlive && enemy1.checkCollisionWith(enemy2)) {
+                const pushForce = 30;
+                const angle = Phaser.Math.Angle.Between(
+                    enemy1.sprite.x, enemy1.sprite.y,
+                    enemy2.sprite.x, enemy2.sprite.y
+                );
+                
+                const pushX1 = Math.cos(angle + Math.PI) * pushForce;
+                const pushY1 = Math.sin(angle + Math.PI) * pushForce;
+                const pushX2 = Math.cos(angle) * pushForce;
+                const pushY2 = Math.sin(angle) * pushForce;
+                
+                enemy1.sprite.setVelocity(
+                    enemy1.sprite.body.velocity.x + pushX1,
+                    enemy1.sprite.body.velocity.y + pushY1
+                );
+                enemy2.sprite.setVelocity(
+                    enemy2.sprite.body.velocity.x + pushX2,
+                    enemy2.sprite.body.velocity.y + pushY2
+                );
+            }
+        });
+    });
 }
 
 function createHPBar(entity, width = 50, height = 6, color = 0xff0000) {
@@ -749,18 +850,6 @@ function spawnSingleEnemy() {
     const enemy = new Enemy(this, x, y, 'enemy');
     enemies.push(enemy);
     currentEnemyCount++;
-    
-    
-    let canHit = true;
-    this.physics.add.overlap(player.sprite, enemy.sprite, () => {
-        if (canHit && enemy.isAlive && player.isAlive) {
-            player.takeDamage(10 + (currentDifficulty * 5));
-            canHit = false;
-            this.time.delayedCall(1000, () => {
-                canHit = true;
-            });
-        }
-    });
     
     enemy.sprite.setInteractive();
     enemy.sprite.on('pointerdown', () => {
@@ -866,111 +955,6 @@ function generateChunk(chunkX, chunkY) {
                     case 6:
                         tile.tint = 0x7CFC00;
                         break;
-                }
-            }
-        }
-    }
-    
-    loadedChunks.set(chunkKey, true);
-}
-
-function generateGrassVariant(x, y) {
-    const noise1 = Math.sin(x * 0.005) * Math.cos(y * 0.005);
-    const noise2 = Math.sin(x * 0.002 + 1000) * Math.cos(y * 0.002 + 1000);
-    const combinedNoise = (noise1 + noise2) / 2;
-    
-    if (combinedNoise > 0.6) {
-        return 1;
-    } else if (combinedNoise > 0.2) {
-        return 2;
-    } else if (combinedNoise > -0.1) {
-        return 3;
-    } else if (combinedNoise > -0.4) {
-        return 4;
-    } else if (combinedNoise > -0.7) {
-        return 5;
-    } else {
-        return 6;
-    }
-}
-
-function generateInitialChunks() {
-    const playerChunkX = Math.floor(player.sprite.x / (CHUNK_SIZE * TILE_SIZE));
-    const playerChunkY = Math.floor(player.sprite.y / (CHUNK_SIZE * TILE_SIZE));
-    
-    for (let x = playerChunkX - RENDER_DISTANCE; x <= playerChunkX + RENDER_DISTANCE; x++) {
-        for (let y = playerChunkY - RENDER_DISTANCE; y <= playerChunkY + RENDER_DISTANCE; y++) {
-            generateChunk.call(this, x, y);
-        }
-    }
-    
-    lastChunkX = playerChunkX;
-    lastChunkY = playerChunkY;
-}
-
-function updateChunks() {
-    const playerChunkX = Math.floor(player.sprite.x / (CHUNK_SIZE * TILE_SIZE));
-    const playerChunkY = Math.floor(player.sprite.y / (CHUNK_SIZE * TILE_SIZE));
-    
-    if (playerChunkX !== lastChunkX || playerChunkY !== lastChunkY) {
-        for (let x = playerChunkX - RENDER_DISTANCE; x <= playerChunkX + RENDER_DISTANCE; x++) {
-            for (let y = playerChunkY - RENDER_DISTANCE; y <= playerChunkY + RENDER_DISTANCE; y++) {
-                const chunkKey = `${x},${y}`;
-                if (!loadedChunks.has(chunkKey)) {
-                    generateChunk.call(this, x, y);
-                }
-            }
-        }
-        
-        const chunksToRemove = [];
-        loadedChunks.forEach((chunk, key) => {
-            const [chunkX, chunkY] = key.split(',').map(Number);
-            const distance = Math.max(
-                Math.abs(chunkX - playerChunkX),
-                Math.abs(chunkY - playerChunkY)
-            );
-            
-            if (distance > RENDER_DISTANCE + 1) {
-                chunksToRemove.push(key);
-            }
-        });
-        
-        chunksToRemove.forEach(key => {
-            loadedChunks.delete(key);
-        });
-        
-        lastChunkX = playerChunkX;
-        lastChunkY = playerChunkY;
-    }
-}
-
-function generateChunk(chunkX, chunkY) {
-    const chunkKey = `${chunkX},${chunkY}`;
-    
-    if (loadedChunks.has(chunkKey)) {
-        return;
-    }
-    
-    const startX = chunkX * CHUNK_SIZE;
-    const startY = chunkY * CHUNK_SIZE;
-    
-    for (let x = 0; x < CHUNK_SIZE; x++) {
-        for (let y = 0; y < CHUNK_SIZE; y++) {
-            const tileX = startX + x;
-            const tileY = startY + y;
-            
-            const grassVariant = generateGrassVariant(tileX * TILE_SIZE, tileY * TILE_SIZE);
-            
-            const tile = tileLayers.background.putTileAt(tilesets.grass.firstgid, tileX, tileY);
-            
-            if (tile) {
-                switch (grassVariant) {
-                    case 1: tile.tint = 0x90EE90; break;
-                    case 2: tile.tint = 0x228B22; break;
-                    case 3: tile.tint = 0x32CD32; break;
-                    case 4: tile.tint = 0x9ACD32; break;
-                    case 5: tile.tint = 0x6B8E23; break;
-                    case 6: tile.tint = 0x7CFC00; break;
                 }
             }
         }
