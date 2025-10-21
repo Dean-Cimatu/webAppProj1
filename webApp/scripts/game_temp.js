@@ -69,40 +69,38 @@ class Player extends Entity {
         this.speed = 100;
         this.isMoving = false;
         
+        
         this.level = 1;
         this.experience = 0;
         this.experienceToNext = 100;
         this.maxHealth = 100;
         this.currentHealth = 100;
         
+        
         this.inventory = [];
         this.maxInventorySize = 10;
+        
         
         this.createAnimations();
         this.sprite.play('idle');
         
+        
         this.createUI();
+        
+        
+        console.log("Player created at:", x, y);
+        console.log("Player sprite:", this.sprite);
+        console.log("Player physics body:", this.sprite.body);
     }
     
     createUI() {
-        // Create HP bar background at initial position
-        this.hpBarBg = this.scene.add.rectangle(0, 0, 60, 8, 0x000000);
-        this.hpBarBg.setDepth(999);
+        this.hpBarBg = this.scene.add.rectangle(0, -50, 60, 8, 0x000000);
+        this.hpBarBg.setDepth(1000);
         
-        // Create HP bar fill at initial position
-        this.hpBarFill = this.scene.add.rectangle(0, 0, 60, 8, 0x00ff00);
-        this.hpBarFill.setDepth(1000);
+        this.hpBar = this.scene.add.rectangle(0, -50, 60, 8, 0x00ff00);
+        this.hpBar.setDepth(1001);
         
-        // Make HP bar always visible for testing
-        this.hpBarBg.setVisible(true);
-        this.hpBarFill.setVisible(true);
-        
-        // Initialize HP bar position after a brief delay
-        this.scene.time.delayedCall(50, () => {
-            this.updateHPBar();
-        });
-        
-        this.levelText = this.scene.add.text(16, 85, `Level: ${this.level}`, {
+        this.levelText = this.scene.add.text(16, 16, `Level: ${this.level}`, {
             fontSize: '18px',
             fill: '#ffffff',
             stroke: '#000000',
@@ -112,7 +110,7 @@ class Player extends Entity {
         this.levelText.setDepth(1000);
         
         this.scene.gameTimer = 0;
-        this.timerText = this.scene.add.text(16, 110, `Time: 0s`, {
+        this.timerText = this.scene.add.text(16, 45, `Time: 0s`, {
             fontSize: '16px',
             fill: '#ffffff',
             stroke: '#000000',
@@ -120,25 +118,6 @@ class Player extends Entity {
         });
         this.timerText.setScrollFactor(0);
         this.timerText.setDepth(1000);
-        
-        const screenWidth = this.scene.cameras.main.width;
-        this.xpBarBg = this.scene.add.rectangle(screenWidth / 2, 20, screenWidth - 40, 20, 0x000000);
-        this.xpBarBg.setScrollFactor(0);
-        this.xpBarBg.setDepth(1000);
-        
-        this.xpBar = this.scene.add.rectangle(screenWidth / 2, 20, screenWidth - 40, 20, 0x00aaff);
-        this.xpBar.setScrollFactor(0);
-        this.xpBar.setDepth(1001);
-        
-        this.xpText = this.scene.add.text(screenWidth / 2, 20, `XP: ${this.experience}/${this.experienceToNext}`, {
-            fontSize: '14px',
-            fill: '#ffffff',
-            stroke: '#000000',
-            strokeThickness: 2
-        });
-        this.xpText.setOrigin(0.5);
-        this.xpText.setScrollFactor(0);
-        this.xpText.setDepth(1002);
         
         this.scene.time.addEvent({
             delay: 1000,
@@ -150,39 +129,21 @@ class Player extends Entity {
         });
     }
     
-    updateHPBar() {
-        if (this.hpBarBg && this.hpBarFill && this.sprite) {
-            // Get current player position
-            const playerX = this.sprite.x;
-            const playerY = this.sprite.y;
-            
-            // Position HP bars exactly above player sprite
-            const hpBarY = playerY - 50;
-            
-            this.hpBarBg.x = playerX;
-            this.hpBarBg.y = hpBarY;
-            this.hpBarFill.x = playerX;
-            this.hpBarFill.y = hpBarY;
-            
-            // Calculate health percentage
-            const healthPercent = this.currentHealth / this.maxHealth;
-            
-            // Update HP bar scale
-            this.hpBarFill.scaleX = healthPercent;
-            
-            // Keep HP bars visible
-            this.hpBarBg.setVisible(true);
-            this.hpBarFill.setVisible(true);
-        }
-    }
-    
     updateUI() {
-        this.updateHPBar();
+        const healthPercent = this.currentHealth / this.maxHealth;
+        this.hpBar.scaleX = healthPercent;
+        this.hpBar.x = this.sprite.x + (30 * (healthPercent - 1));
+        this.hpBarBg.x = this.sprite.x;
+        this.hpBarBg.y = this.sprite.y - 50;
+        this.hpBar.y = this.sprite.y - 50;
         
-        const xpPercent = this.experience / this.experienceToNext;
-        this.xpBar.scaleX = xpPercent;
-        this.xpBar.x = (this.scene.cameras.main.width / 2) + ((this.scene.cameras.main.width - 40) * (xpPercent - 1) / 2);
-        this.xpText.setText(`XP: ${this.experience}/${this.experienceToNext}`);
+        if (healthPercent > 0.6) {
+            this.hpBar.setFillStyle(0x00ff00);
+        } else if (healthPercent > 0.3) {
+            this.hpBar.setFillStyle(0xffff00);
+        } else {
+            this.hpBar.setFillStyle(0xff0000);
+        }
         
         this.levelText.setText(`Level: ${this.level}`);
     }
@@ -202,12 +163,13 @@ class Player extends Entity {
         this.experience = 0;
         this.experienceToNext = Math.floor(this.experienceToNext * 1.5);
         this.maxHealth += 20;
-        this.currentHealth = this.maxHealth; // Full heal on level up
+        this.currentHealth = this.maxHealth; 
         
-        // Show level up selection
+        
         this.showLevelUpSelection();
         
         this.updateUI();
+        console.log(`Level up! Now level ${this.level}`);
     }
     
     showLevelUpSelection() {
@@ -271,8 +233,9 @@ class Player extends Entity {
     addToInventory(item) {
         if (this.inventory.length < this.maxInventorySize) {
             this.inventory.push(item);
+            console.log(`Added ${item.name} to inventory!`);
             
-            // Apply item effects immediately
+            
             this.applyItemEffect(item);
         }
     }
@@ -286,23 +249,15 @@ class Player extends Entity {
                 this.speed += 20;
                 break;
             case 'Strength Ring':
-                // This would affect damage dealing
+                
                 break;
         }
         this.updateUI();
     }
     
-    update() {
-        if (this.isAlive) {
-            this.updateHPBar();
-        }
-    }
-    
     takeDamage(amount) {
-        if (!this.isAlive) return;
-        
         this.currentHealth -= amount;
-        if (this.currentHealth < 0) this.currentHealth = 0;
+        
         
         this.sprite.setTint(0xff0000);
         this.scene.time.delayedCall(100, () => {
@@ -315,100 +270,17 @@ class Player extends Entity {
             this.die();
         }
         
-        this.updateHPBar();
         this.updateUI();
     }
     
     die() {
         this.isAlive = false;
-        this.sprite.setVelocity(0);
-        this.sprite.setTint(0xff0000);
+        console.log('Game Over!');
         
-        this.scene.physics.pause();
-        
-        this.showGameOverScreen();
-    }
-    
-    showGameOverScreen() {
-        const overlay = this.scene.add.rectangle(
-            this.scene.cameras.main.centerX,
-            this.scene.cameras.main.centerY,
-            this.scene.cameras.main.width,
-            this.scene.cameras.main.height,
-            0x000000, 0.8
-        );
-        overlay.setScrollFactor(0);
-        overlay.setDepth(3000);
-        
-        const gameOverText = this.scene.add.text(
-            this.scene.cameras.main.centerX,
-            this.scene.cameras.main.centerY - 100,
-            'GAME OVER',
-            { fontSize: '48px', fill: '#ff0000', stroke: '#000000', strokeThickness: 4 }
-        );
-        gameOverText.setOrigin(0.5);
-        gameOverText.setScrollFactor(0);
-        gameOverText.setDepth(3001);
-        
-        const statsText = this.scene.add.text(
-            this.scene.cameras.main.centerX,
-            this.scene.cameras.main.centerY - 30,
-            `Level Reached: ${this.level}\nTime Survived: ${this.scene.gameTimer}s`,
-            { fontSize: '20px', fill: '#ffffff', stroke: '#000000', strokeThickness: 2, align: 'center' }
-        );
-        statsText.setOrigin(0.5);
-        statsText.setScrollFactor(0);
-        statsText.setDepth(3001);
-        
-        const restartButton = this.scene.add.rectangle(
-            this.scene.cameras.main.centerX - 80,
-            this.scene.cameras.main.centerY + 80,
-            150, 50, 0x333333
-        );
-        restartButton.setScrollFactor(0);
-        restartButton.setDepth(3001);
-        restartButton.setInteractive();
-        
-        const restartText = this.scene.add.text(
-            this.scene.cameras.main.centerX - 80,
-            this.scene.cameras.main.centerY + 80,
-            'Restart',
-            { fontSize: '18px', fill: '#ffffff' }
-        );
-        restartText.setOrigin(0.5);
-        restartText.setScrollFactor(0);
-        restartText.setDepth(3002);
-        
-        const homeButton = this.scene.add.rectangle(
-            this.scene.cameras.main.centerX + 80,
-            this.scene.cameras.main.centerY + 80,
-            150, 50, 0x333333
-        );
-        homeButton.setScrollFactor(0);
-        homeButton.setDepth(3001);
-        homeButton.setInteractive();
-        
-        const homeText = this.scene.add.text(
-            this.scene.cameras.main.centerX + 80,
-            this.scene.cameras.main.centerY + 80,
-            'Home',
-            { fontSize: '18px', fill: '#ffffff' }
-        );
-        homeText.setOrigin(0.5);
-        homeText.setScrollFactor(0);
-        homeText.setDepth(3002);
-        
-        restartButton.on('pointerdown', () => {
-            this.scene.scene.restart();
-        });
-        
-        homeButton.on('pointerdown', () => {
-            window.location.href = '../index.html';
-        });
     }
     
     createAnimations() {
-        // Idle animation (slower)
+        
         this.scene.anims.create({
             key: 'idle',
             frames: [
@@ -419,7 +291,7 @@ class Player extends Entity {
             repeat: -1
         });
         
-        // Run animation
+        
         this.scene.anims.create({
             key: 'run',
             frames: [
@@ -436,30 +308,37 @@ class Player extends Entity {
         this.isMoving = false;
         this.sprite.setVelocity(0);
         
+        
         if (!cursors) {
+            console.log("Cursors object is null or undefined");
             return;
         }
         
+        
         if (cursors.A && cursors.A.isDown) {
+            console.log("A key is down");
             this.sprite.setVelocityX(-this.speed);
             this.sprite.setFlipX(true);
             this.isMoving = true;
         }
         if (cursors.D && cursors.D.isDown) {
+            console.log("D key is down");
             this.sprite.setVelocityX(this.speed);
             this.sprite.setFlipX(false);
             this.isMoving = true;
         }
         if (cursors.W && cursors.W.isDown) {
+            console.log("W key is down");
             this.sprite.setVelocityY(-this.speed);
             this.isMoving = true;
         }
         if (cursors.S && cursors.S.isDown) {
+            console.log("S key is down");
             this.sprite.setVelocityY(this.speed);
             this.isMoving = true;
         }
         
-        // Handle animations
+        
         if (this.isMoving) {
             if (this.sprite.anims.currentAnim?.key !== 'run') {
                 this.sprite.play('run');
@@ -476,53 +355,55 @@ class Player extends Entity {
     }
 }
 
-// Enemy class
+
 class Enemy extends Entity {
     constructor(scene, x, y, enemyType = 'enemy') {
-        super(scene, x, y, 'enemy_sprite');
+        super(scene, x, y, 'enemy');
         
         this.enemyType = enemyType;
-        this.sprite.setDisplaySize(72, 72);
-        // No red tint - natural Lereon knight colors
+        this.sprite.setDisplaySize(48, 48);
+        this.sprite.setTint(0xff6666); 
         
         this.speed = 50;
         this.health = 100;
         this.maxHealth = this.health;
         this.direction = Math.random() * Math.PI * 2;
         
-        // Create patrol behavior
+        console.log("Enemy created at:", x, y);
+        
+        
         this.createPatrolBehavior();
         
-        // Create enemy HP bar
+        
         this.createHPBar();
     }
     
     createHPBar() {
-        // Create HP bar background
+        
         this.hpBarBg = this.scene.add.rectangle(0, -40, 50, 6, 0x000000);
         this.hpBarBg.setDepth(999);
         
-        // Create HP bar fill
+        
         this.hpBarFill = this.scene.add.rectangle(0, -40, 50, 6, 0xff0000);
         this.hpBarFill.setDepth(1000);
     }
     
     updateHPBar() {
         if (this.hpBarBg && this.hpBarFill) {
-            // Position above sprite
+            
             this.hpBarBg.x = this.sprite.x;
             this.hpBarBg.y = this.sprite.y - 40;
             this.hpBarFill.x = this.sprite.x;
             this.hpBarFill.y = this.sprite.y - 40;
             
-            // Update width based on health
+            
             const healthPercent = this.health / this.maxHealth;
             this.hpBarFill.scaleX = healthPercent;
         }
     }
     
     createPatrolBehavior() {
-        // Random movement pattern
+        
         this.scene.time.addEvent({
             delay: 2000,
             callback: () => {
@@ -538,13 +419,13 @@ class Enemy extends Entity {
         super.update();
         
         if (this.isAlive) {
-            // Simple AI movement
+            
             const moveX = Math.cos(this.direction) * this.speed;
             const moveY = Math.sin(this.direction) * this.speed;
             
             this.sprite.setVelocity(moveX, moveY);
             
-            // Face movement direction
+            
             if (moveX < 0) {
                 this.sprite.setFlipX(true);
             } else if (moveX > 0) {
@@ -558,7 +439,7 @@ class Enemy extends Entity {
     takeDamage(damage) {
         this.health -= damage;
         
-        // Flash red when taking damage
+        
         this.sprite.setTint(0xff0000);
         this.scene.time.delayedCall(100, () => {
             if (this.isAlive) {
@@ -578,19 +459,19 @@ class Enemy extends Entity {
         this.sprite.setTint(0x666666);
         this.sprite.setVelocity(0);
         
-        // Give player experience
+        
         if (player) {
             player.gainExperience(25 + (currentDifficulty * 10));
         }
         
-        // Decrease enemy count
+        
         currentEnemyCount--;
         
-        // Clean up HP bar
+        
         if (this.hpBarBg) this.hpBarBg.destroy();
         if (this.hpBarFill) this.hpBarFill.destroy();
         
-        // Death animation
+        
         this.scene.tweens.add({
             targets: [this.sprite, this.shadow],
             alpha: 0,
@@ -614,10 +495,10 @@ let tilemap;
 let tileLayers = {};
 let tilesets = {};
 
-// Entity arrays
+
 let enemies = [];
 
-// Game systems
+
 let currentDifficulty = 1;
 let maxEnemies = 5;
 let currentEnemyCount = 0;
@@ -631,54 +512,13 @@ let lastChunkY = null;
 let loadedChunks = new Map();
 
 function preload() {
-    // Create loading screen
-    const width = this.cameras.main.width;
-    const height = this.cameras.main.height;
+    this.load.image('grass1', '../background/bgtile.png');
+    this.load.image('grass2', '../background/bgtile.png');
+    this.load.image('grass3', '../background/bgtile.png');
+    this.load.image('grass4', '../background/bgtile.png');
+    this.load.image('grass5', '../background/bgtile.png');
+    this.load.image('grass6', '../background/bgtile.png');
     
-    // Loading background
-    const loadingBg = this.add.rectangle(width / 2, height / 2, width, height, 0x000000);
-    
-    // Loading text
-    const loadingText = this.add.text(width / 2, height / 2 - 50, 'Loading Colosseum Fighters...', {
-        fontSize: '24px',
-        fill: '#ffffff',
-        fontFamily: 'Arial'
-    });
-    loadingText.setOrigin(0.5);
-    
-    // Loading bar background
-    const loadingBarBg = this.add.rectangle(width / 2, height / 2, 400, 20, 0x333333);
-    
-    // Loading bar fill
-    const loadingBar = this.add.rectangle(width / 2 - 200, height / 2, 0, 20, 0x00ff00);
-    loadingBar.setOrigin(0, 0.5);
-    
-    // Progress text
-    const progressText = this.add.text(width / 2, height / 2 + 40, '0%', {
-        fontSize: '18px',
-        fill: '#ffffff',
-        fontFamily: 'Arial'
-    });
-    progressText.setOrigin(0.5);
-    
-    // Update progress
-    this.load.on('progress', (value) => {
-        loadingBar.width = 400 * value;
-        progressText.setText(Math.round(value * 100) + '%');
-    });
-    
-    // Remove loading screen when complete
-    this.load.on('complete', () => {
-        loadingBg.destroy();
-        loadingText.destroy();
-        loadingBarBg.destroy();
-        loadingBar.destroy();
-        progressText.destroy();
-    });
-    
-    this.load.image('grass', '../background/bgtile.png');
-    
-    // Load player sprites
     for (let i = 0; i < 8; i++) {
         this.load.image(`idle_${i}`, `../sprites/player/Idle/HeroKnight_Idle_${i}.png`);
     }
@@ -687,8 +527,7 @@ function preload() {
         this.load.image(`run_${i}`, `../sprites/player/Run/HeroKnight_Run_${i}.png`);
     }
     
-    // Load enemy sprite
-    this.load.image('enemy_sprite', '../sprites/enemies/lereon knight.png');
+    this.load.image('enemy', '../sprites/player/Idle/HeroKnight_Idle_0.png');
 }
 
 function create() {
@@ -699,9 +538,17 @@ function create() {
         height: 2000
     });
     
-    tilesets.grass = tilemap.addTilesetImage('grass', 'grass', TILE_SIZE, TILE_SIZE);
+    tilesets.grass1 = tilemap.addTilesetImage('grass1', 'grass1', TILE_SIZE, TILE_SIZE);
+    tilesets.grass2 = tilemap.addTilesetImage('grass2', 'grass2', TILE_SIZE, TILE_SIZE);
+    tilesets.grass3 = tilemap.addTilesetImage('grass3', 'grass3', TILE_SIZE, TILE_SIZE);
+    tilesets.grass4 = tilemap.addTilesetImage('grass4', 'grass4', TILE_SIZE, TILE_SIZE);
+    tilesets.grass5 = tilemap.addTilesetImage('grass5', 'grass5', TILE_SIZE, TILE_SIZE);
+    tilesets.grass6 = tilemap.addTilesetImage('grass6', 'grass6', TILE_SIZE, TILE_SIZE);
     
-    tileLayers.background = tilemap.createBlankLayer('background', [tilesets.grass]);
+    tileLayers.background = tilemap.createBlankLayer('background', [
+        tilesets.grass1, tilesets.grass2, tilesets.grass3, 
+        tilesets.grass4, tilesets.grass5, tilesets.grass6
+    ]);
     
     player = new Player(this, 1000 * TILE_SIZE, 1000 * TILE_SIZE);
     
@@ -725,8 +572,6 @@ function update() {
     if (player && player.isAlive) {
         player.handleInput(cursors);
         player.update();
-        // Ensure HP bar is updated every frame
-        player.updateHPBar();
     }
     
     enemies.forEach(enemy => {
@@ -740,7 +585,7 @@ function update() {
     updateChunks.call(this);
 }
 
-// Difficulty function - increases difficulty over time
+
 function getDifficultyLevel() {
     return Math.floor(player.level / 3) + 1;
 }
@@ -749,11 +594,12 @@ function updateDifficulty() {
     const newDifficulty = getDifficultyLevel();
     if (newDifficulty > currentDifficulty) {
         currentDifficulty = newDifficulty;
-        maxEnemies = Math.min(5 + (currentDifficulty * 2), 15); // Cap at 15 enemies
+        maxEnemies = Math.min(5 + (currentDifficulty * 2), 15); 
+        console.log(`Difficulty increased to ${currentDifficulty}! Max enemies: ${maxEnemies}`);
     }
 }
 
-// HP Bar function - creates and manages health bars
+
 function createHPBar(entity, width = 50, height = 6, color = 0xff0000) {
     entity.hpBarBg = entity.scene.add.rectangle(0, -40, width, height, 0x000000);
     entity.hpBarBg.setDepth(999);
@@ -767,11 +613,11 @@ function createHPBar(entity, width = 50, height = 6, color = 0xff0000) {
     };
 }
 
-// Enemy Limit function - manages enemy spawning based on limits
+
 function maintainEnemyLimit() {
     updateDifficulty();
     
-    // Spawn new enemies if below limit
+    
     if (currentEnemyCount < maxEnemies) {
         const enemiesToSpawn = Math.min(maxEnemies - currentEnemyCount, 2);
         for (let i = 0; i < enemiesToSpawn; i++) {
@@ -781,8 +627,9 @@ function maintainEnemyLimit() {
 }
 
 function spawnEnemies() {
-    // Spawn initial enemies around the player
+    
     const initialSpawn = Math.min(maxEnemies, 3);
+    console.log(`Spawning ${initialSpawn} initial enemies`);
     
     for (let i = 0; i < initialSpawn; i++) {
         spawnSingleEnemy.call(this);
@@ -790,41 +637,45 @@ function spawnEnemies() {
 }
 
 function spawnSingleEnemy() {
-    // Spawn enemy away from player
+    
     const angle = Math.random() * Math.PI * 2;
     const distance = 300 + Math.random() * 200;
     const x = player.sprite.x + Math.cos(angle) * distance;
     const y = player.sprite.y + Math.sin(angle) * distance;
     
+    console.log(`Spawning enemy at (${Math.round(x)}, ${Math.round(y)})`);
+    
     const enemy = new Enemy(this, x, y, 'enemy');
     enemies.push(enemy);
     currentEnemyCount++;
     
-    // Setup collision for this enemy
+    
     let canHit = true;
     this.physics.add.overlap(player.sprite, enemy.sprite, () => {
         if (canHit && enemy.isAlive && player.isAlive) {
-            // Player takes damage from enemy
+            
             player.takeDamage(10 + (currentDifficulty * 5));
+            console.log(`Player hit by ${enemy.enemyType}!`);
             canHit = false;
-            // Cooldown before next hit
+            
             this.time.delayedCall(1000, () => {
                 canHit = true;
             });
         }
     });
     
-    // Add click to attack enemy
+    
     enemy.sprite.setInteractive();
     enemy.sprite.on('pointerdown', () => {
         if (enemy.isAlive) {
             enemy.takeDamage(25 + (player.level * 5));
+            console.log(`Attacked ${enemy.enemyType}!`);
         }
     });
 }
 
 function startDifficultyProgression() {
-    // Increase difficulty every 30 seconds
+    
     this.time.addEvent({
         delay: 30000,
         callback: () => {
@@ -832,6 +683,7 @@ function startDifficultyProgression() {
         },
         loop: true
     });
+    console.log("Difficulty progression started");
 }
 
 function generateInitialChunks() {
@@ -897,30 +749,54 @@ function generateChunk(chunkX, chunkY) {
             
             const grassVariant = generateGrassVariant(tileX * TILE_SIZE, tileY * TILE_SIZE);
             
-            // Get the appropriate grass tileset based on variant
-            // Place grass tile using single tilemap
-            const tile = tileLayers.background.putTileAt(tilesets.grass.firstgid, tileX, tileY);
             
-            // Apply cohesive tint variations for regional colors
+            let tileset;
+            switch (grassVariant) {
+                case 1:
+                    tileset = tilesets.grass1;
+                    break;
+                case 2:
+                    tileset = tilesets.grass2;
+                    break;
+                case 3:
+                    tileset = tilesets.grass3;
+                    break;
+                case 4:
+                    tileset = tilesets.grass4;
+                    break;
+                case 5:
+                    tileset = tilesets.grass5;
+                    break;
+                case 6:
+                    tileset = tilesets.grass6;
+                    break;
+                default:
+                    tileset = tilesets.grass1;
+            }
+            
+            
+            const tile = tileLayers.background.putTileAt(tileset.firstgid, tileX, tileY);
+            
+            
             if (tile) {
                 switch (grassVariant) {
                     case 1:
-                        tile.tint = 0x90EE90; // Light green region
+                        tile.tint = 0x90EE90; 
                         break;
                     case 2:
-                        tile.tint = 0x228B22; // Forest green region
+                        tile.tint = 0x228B22; 
                         break;
                     case 3:
-                        tile.tint = 0x32CD32; // Lime green region
+                        tile.tint = 0x32CD32; 
                         break;
                     case 4:
-                        tile.tint = 0x9ACD32; // Yellow green region
+                        tile.tint = 0x9ACD32; 
                         break;
                     case 5:
-                        tile.tint = 0x6B8E23; // Olive green region
+                        tile.tint = 0x6B8E23; 
                         break;
                     case 6:
-                        tile.tint = 0x7CFC00; // Lawn green region
+                        tile.tint = 0x7CFC00; 
                         break;
                 }
             }
@@ -931,12 +807,12 @@ function generateChunk(chunkX, chunkY) {
 }
 
 function generateGrassVariant(x, y) {
-    // Use simpler noise for reliable regional grass types
+    
     const noise1 = Math.sin(x * 0.005) * Math.cos(y * 0.005);
     const noise2 = Math.sin(x * 0.002 + 1000) * Math.cos(y * 0.002 + 1000);
     const combinedNoise = (noise1 + noise2) / 2;
     
-    // Create 6 distinct grass regions
+    
     if (combinedNoise > 0.6) {
         return 1;
     } else if (combinedNoise > 0.2) {
@@ -1019,7 +895,18 @@ function generateChunk(chunkX, chunkY) {
             
             const grassVariant = generateGrassVariant(tileX * TILE_SIZE, tileY * TILE_SIZE);
             
-            const tile = tileLayers.background.putTileAt(tilesets.grass.firstgid, tileX, tileY);
+            let tileset;
+            switch (grassVariant) {
+                case 1: tileset = tilesets.grass1; break;
+                case 2: tileset = tilesets.grass2; break;
+                case 3: tileset = tilesets.grass3; break;
+                case 4: tileset = tilesets.grass4; break;
+                case 5: tileset = tilesets.grass5; break;
+                case 6: tileset = tilesets.grass6; break;
+                default: tileset = tilesets.grass1; break;
+            }
+            
+            const tile = tileLayers.background.putTileAt(tileset.firstgid, tileX, tileY);
             
             if (tile) {
                 switch (grassVariant) {
@@ -1038,12 +925,12 @@ function generateChunk(chunkX, chunkY) {
 }
 
 function generateGrassVariant(x, y) {
-    // Use simpler noise for reliable regional grass types
+    
     const noise1 = Math.sin(x * 0.005) * Math.cos(y * 0.005);
     const noise2 = Math.sin(x * 0.002 + 1000) * Math.cos(y * 0.002 + 1000);
     const combinedNoise = (noise1 + noise2) / 2;
     
-    // Create 6 distinct grass regions
+    
     if (combinedNoise > 0.6) {
         return 1;
     } else if (combinedNoise > 0.2) {
