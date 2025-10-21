@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Game</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
+</head>
+<body>
+    <div id="gameContainer"></div>
+    
+    <script>
+        // Simple test to see if the game initializes
+        console.log("Starting game test...");
+        
+        try {
+            // Load the game script
+            const script = document.createElement('script');
+            script.src = './scripts/game.js';
+            script.onload = function() {
+                console.log("Game script loaded successfully");
+                
+                // Try to start the game
+                try {
+                    const game = new Phaser.Game(config);
+                    console.log("Game instance created:", game);
+                } catch (e) {
+                    console.error("Error creating game:", e);
+                }
+            };
+            script.onerror = function() {
+                console.error("Failed to load game script");
+            };
+            document.head.appendChild(script);
+        } catch (e) {
+            console.error("Error in test:", e);
+        }
+    </script>
+</body>
+</html>
