@@ -1,12 +1,10 @@
-// Registration Form Handler
 document.addEventListener('DOMContentLoaded', function() {
     const registerForm = document.querySelector('#registerForm form');
     
     if (registerForm) {
         registerForm.addEventListener('submit', function(e) {
-            e.preventDefault(); // Prevent default form submission
+            e.preventDefault();
             
-            // Get form data
             const formData = {
                 username: document.getElementById('username').value,
                 email: document.getElementById('email').value,
@@ -14,17 +12,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 dateOfBirth: document.getElementById('DateOfBirth').value
             };
             
-            // Attempt registration
             const result = auth.register(formData);
             
-            // Display result
             displayMessage(result.message, result.success ? 'success' : 'error');
             
             if (result.success) {
-                // Clear form
                 registerForm.reset();
                 
-                // Optional: Auto-redirect to login page after successful registration
                 setTimeout(() => {
                     window.location.href = 'login.html';
                 }, 2000);
@@ -33,20 +27,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Display message function
 function displayMessage(message, type = 'info') {
-    // Remove any existing message
     const existingMessage = document.querySelector('.auth-message');
     if (existingMessage) {
         existingMessage.remove();
     }
     
-    // Create message element
     const messageDiv = document.createElement('div');
     messageDiv.className = `auth-message ${type}`;
     messageDiv.textContent = message;
     
-    // Add styles
     messageDiv.style.cssText = `
         padding: 10px 15px;
         margin: 10px 0;
@@ -59,12 +49,10 @@ function displayMessage(message, type = 'info') {
         ${type === 'info' ? 'background: rgba(70, 130, 180, 0.8); color: white;' : ''}
     `;
     
-    // Insert message at the top of the form
     const form = document.querySelector('#registerForm');
     if (form) {
         form.insertBefore(messageDiv, form.firstChild);
         
-        // Auto-remove message after 5 seconds
         setTimeout(() => {
             if (messageDiv.parentNode) {
                 messageDiv.remove();

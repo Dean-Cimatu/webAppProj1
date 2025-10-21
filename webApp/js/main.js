@@ -1,4 +1,3 @@
-// Main Page User Status Handler
 document.addEventListener('DOMContentLoaded', function() {
     updateUserStatus();
     updateNavigation();
@@ -11,7 +10,6 @@ function updateUserStatus() {
         const mainMenu = document.querySelector('#mainMenu');
         
         if (mainContent && mainMenu) {
-            // Create layout container
             const layoutContainer = document.createElement('div');
             layoutContainer.className = 'game-layout';
             layoutContainer.style.cssText = `
@@ -24,7 +22,6 @@ function updateUserStatus() {
                 margin: 20px auto;
             `;
             
-            // Create welcome panel
             const welcomePanel = document.createElement('div');
             welcomePanel.className = 'welcome-panel';
             welcomePanel.innerHTML = `
@@ -56,7 +53,6 @@ function updateUserStatus() {
                 </div>
             `;
             
-            // Style the main menu for left positioning
             mainMenu.style.cssText = `
                 width: 375px;
                 margin: 0;
@@ -68,20 +64,15 @@ function updateUserStatus() {
                 flex-shrink: 0;
             `;
             
-            // Insert layout container after title
             const title = mainContent.querySelector('#title');
             if (title) {
-                // Remove mainMenu from its current position
                 mainMenu.remove();
                 
-                // Add mainMenu and welcome panel to layout container
                 layoutContainer.appendChild(mainMenu);
                 layoutContainer.appendChild(welcomePanel);
                 
-                // Insert layout container after title
                 title.insertAdjacentElement('afterend', layoutContainer);
                 
-                // Add CSS styles for welcome panel
                 addWelcomePanelStyles();
             }
         }
@@ -93,7 +84,6 @@ function updateNavigation() {
     if (!topNav) return;
     
     if (auth.isLoggedIn()) {
-        // Hide register/login buttons if logged in
         const registerBtn = topNav.querySelector('a[href*="register"]');
         const loginBtn = topNav.querySelector('a[href*="login"]');
         
@@ -105,13 +95,11 @@ function updateNavigation() {
 function logout() {
     const result = auth.logout();
     if (result.success) {
-        // Reload page to update UI
         window.location.reload();
     }
 }
 
 function addWelcomePanelStyles() {
-    // Check if styles are already added
     if (document.getElementById('welcome-panel-styles')) return;
     
     const style = document.createElement('style');
@@ -235,10 +223,8 @@ function addWelcomePanelStyles() {
 }
 
 function viewProfile() {
-    // Placeholder for future profile page
     alert('Profile page coming soon!');
 }
 
-// Make functions globally available
 window.logout = logout;
 window.viewProfile = viewProfile;

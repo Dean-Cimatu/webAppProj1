@@ -1,4 +1,3 @@
-// Leaderboard Handler
 document.addEventListener('DOMContentLoaded', function() {
     loadLeaderboard();
 });
@@ -8,7 +7,6 @@ function loadLeaderboard() {
     const mainContent = document.querySelector('.main-content');
     
     if (mainContent && leaderboardData.length > 0) {
-        // Create leaderboard table
         const leaderboardHTML = `
             <div id="leaderboard">
                 <table class="leaderboard-table">
@@ -34,16 +32,13 @@ function loadLeaderboard() {
             </div>
         `;
         
-        // Insert after the h1 title
         const h1 = mainContent.querySelector('h1');
         if (h1) {
             h1.insertAdjacentHTML('afterend', leaderboardHTML);
         }
         
-        // Add CSS styles for the leaderboard table
         addLeaderboardStyles();
     } else if (mainContent) {
-        // No data available message
         const h1 = mainContent.querySelector('h1');
         if (h1) {
             h1.insertAdjacentHTML('afterend', `
@@ -58,7 +53,6 @@ function loadLeaderboard() {
 }
 
 function addLeaderboardStyles() {
-    // Check if styles are already added
     if (document.getElementById('leaderboard-styles')) return;
     
     const style = document.createElement('style');
