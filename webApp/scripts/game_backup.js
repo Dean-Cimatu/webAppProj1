@@ -85,14 +85,19 @@ class Player extends Entity {
     }
     
     createUI() {
+        // Create HP bar background at initial position
         this.hpBarBg = this.scene.add.rectangle(0, 0, 60, 8, 0x000000);
         this.hpBarBg.setDepth(999);
         
+        // Create HP bar fill at initial position
         this.hpBarFill = this.scene.add.rectangle(0, 0, 60, 8, 0x00ff00);
         this.hpBarFill.setDepth(1000);
         
+        // Make HP bar always visible for testing
         this.hpBarBg.setVisible(true);
         this.hpBarFill.setVisible(true);
+        
+        // Initialize HP bar position after a brief delay
         this.scene.time.delayedCall(50, () => {
             this.updateHPBar();
         });
@@ -147,9 +152,11 @@ class Player extends Entity {
     
     updateHPBar() {
         if (this.hpBarBg && this.hpBarFill && this.sprite) {
+            // Get current player position
             const playerX = this.sprite.x;
             const playerY = this.sprite.y;
             
+            // Position HP bars exactly above player sprite
             const hpBarY = playerY - 50;
             
             this.hpBarBg.x = playerX;
@@ -157,9 +164,13 @@ class Player extends Entity {
             this.hpBarFill.x = playerX;
             this.hpBarFill.y = hpBarY;
             
+            // Calculate health percentage
             const healthPercent = this.currentHealth / this.maxHealth;
             
+            // Update HP bar scale
             this.hpBarFill.scaleX = healthPercent;
+            
+            // Keep HP bars visible
             this.hpBarBg.setVisible(true);
             this.hpBarFill.setVisible(true);
         }
@@ -191,8 +202,9 @@ class Player extends Entity {
         this.experience = 0;
         this.experienceToNext = Math.floor(this.experienceToNext * 1.5);
         this.maxHealth += 20;
-        this.currentHealth = this.maxHealth;
+        this.currentHealth = this.maxHealth; // Full heal on level up
         
+        // Show level up selection
         this.showLevelUpSelection();
         
         this.updateUI();
@@ -260,6 +272,7 @@ class Player extends Entity {
         if (this.inventory.length < this.maxInventorySize) {
             this.inventory.push(item);
             
+            // Apply item effects immediately
             this.applyItemEffect(item);
         }
     }
@@ -273,6 +286,7 @@ class Player extends Entity {
                 this.speed += 20;
                 break;
             case 'Strength Ring':
+                // This would affect damage dealing
                 break;
         }
         this.updateUI();
@@ -394,6 +408,7 @@ class Player extends Entity {
     }
     
     createAnimations() {
+        // Idle animation (slower)
         this.scene.anims.create({
             key: 'idle',
             frames: [
@@ -404,6 +419,7 @@ class Player extends Entity {
             repeat: -1
         });
         
+        // Run animation
         this.scene.anims.create({
             key: 'run',
             frames: [
@@ -443,6 +459,7 @@ class Player extends Entity {
             this.isMoving = true;
         }
         
+        // Handle animations
         if (this.isMoving) {
             if (this.sprite.anims.currentAnim?.key !== 'run') {
                 this.sprite.play('run');
@@ -459,44 +476,53 @@ class Player extends Entity {
     }
 }
 
+// Enemy class
 class Enemy extends Entity {
     constructor(scene, x, y, enemyType = 'enemy') {
         super(scene, x, y, 'enemy_sprite');
         
         this.enemyType = enemyType;
         this.sprite.setDisplaySize(72, 72);
+        // No red tint - natural Lereon knight colors
         
         this.speed = 50;
         this.health = 100;
         this.maxHealth = this.health;
         this.direction = Math.random() * Math.PI * 2;
         
+        // Create patrol behavior
         this.createPatrolBehavior();
         
+        // Create enemy HP bar
         this.createHPBar();
     }
     
     createHPBar() {
+        // Create HP bar background
         this.hpBarBg = this.scene.add.rectangle(0, -40, 50, 6, 0x000000);
         this.hpBarBg.setDepth(999);
         
+        // Create HP bar fill
         this.hpBarFill = this.scene.add.rectangle(0, -40, 50, 6, 0xff0000);
         this.hpBarFill.setDepth(1000);
     }
     
     updateHPBar() {
         if (this.hpBarBg && this.hpBarFill) {
+            // Position above sprite
             this.hpBarBg.x = this.sprite.x;
             this.hpBarBg.y = this.sprite.y - 40;
             this.hpBarFill.x = this.sprite.x;
             this.hpBarFill.y = this.sprite.y - 40;
             
+            // Update width based on health
             const healthPercent = this.health / this.maxHealth;
             this.hpBarFill.scaleX = healthPercent;
         }
     }
     
     createPatrolBehavior() {
+        // Random movement pattern
         this.scene.time.addEvent({
             delay: 2000,
             callback: () => {
@@ -512,11 +538,13 @@ class Enemy extends Entity {
         super.update();
         
         if (this.isAlive) {
+            // Simple AI movement
             const moveX = Math.cos(this.direction) * this.speed;
             const moveY = Math.sin(this.direction) * this.speed;
             
             this.sprite.setVelocity(moveX, moveY);
             
+            // Face movement direction
             if (moveX < 0) {
                 this.sprite.setFlipX(true);
             } else if (moveX > 0) {
@@ -530,6 +558,7 @@ class Enemy extends Entity {
     takeDamage(damage) {
         this.health -= damage;
         
+        // Flash red when taking damage
         this.sprite.setTint(0xff0000);
         this.scene.time.delayedCall(100, () => {
             if (this.isAlive) {
@@ -549,16 +578,19 @@ class Enemy extends Entity {
         this.sprite.setTint(0x666666);
         this.sprite.setVelocity(0);
         
+        // Give player experience
         if (player) {
             player.gainExperience(25 + (currentDifficulty * 10));
         }
         
+        // Decrease enemy count
         currentEnemyCount--;
         
+        // Clean up HP bar
         if (this.hpBarBg) this.hpBarBg.destroy();
         if (this.hpBarFill) this.hpBarFill.destroy();
         
-        
+        // Death animation
         this.scene.tweens.add({
             targets: [this.sprite, this.shadow],
             alpha: 0,
@@ -582,7 +614,10 @@ let tilemap;
 let tileLayers = {};
 let tilesets = {};
 
+// Entity arrays
 let enemies = [];
+
+// Game systems
 let currentDifficulty = 1;
 let maxEnemies = 5;
 let currentEnemyCount = 0;
@@ -596,11 +631,14 @@ let lastChunkY = null;
 let loadedChunks = new Map();
 
 function preload() {
+    // Create loading screen
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
     
+    // Loading background
     const loadingBg = this.add.rectangle(width / 2, height / 2, width, height, 0x000000);
     
+    // Loading text
     const loadingText = this.add.text(width / 2, height / 2 - 50, 'Loading Colosseum Fighters...', {
         fontSize: '24px',
         fill: '#ffffff',
@@ -608,11 +646,14 @@ function preload() {
     });
     loadingText.setOrigin(0.5);
     
+    // Loading bar background
     const loadingBarBg = this.add.rectangle(width / 2, height / 2, 400, 20, 0x333333);
     
+    // Loading bar fill
     const loadingBar = this.add.rectangle(width / 2 - 200, height / 2, 0, 20, 0x00ff00);
     loadingBar.setOrigin(0, 0.5);
     
+    // Progress text
     const progressText = this.add.text(width / 2, height / 2 + 40, '0%', {
         fontSize: '18px',
         fill: '#ffffff',
@@ -620,12 +661,13 @@ function preload() {
     });
     progressText.setOrigin(0.5);
     
+    // Update progress
     this.load.on('progress', (value) => {
         loadingBar.width = 400 * value;
         progressText.setText(Math.round(value * 100) + '%');
     });
     
-    
+    // Remove loading screen when complete
     this.load.on('complete', () => {
         loadingBg.destroy();
         loadingText.destroy();
@@ -636,6 +678,7 @@ function preload() {
     
     this.load.image('grass', '../background/bgtile.png');
     
+    // Load player sprites
     for (let i = 0; i < 8; i++) {
         this.load.image(`idle_${i}`, `../sprites/player/Idle/HeroKnight_Idle_${i}.png`);
     }
@@ -644,6 +687,7 @@ function preload() {
         this.load.image(`run_${i}`, `../sprites/player/Run/HeroKnight_Run_${i}.png`);
     }
     
+    // Load enemy sprite
     this.load.image('enemy_sprite', '../sprites/enemies/lereon knight.png');
 }
 
@@ -681,6 +725,7 @@ function update() {
     if (player && player.isAlive) {
         player.handleInput(cursors);
         player.update();
+        // Ensure HP bar is updated every frame
         player.updateHPBar();
     }
     
@@ -695,6 +740,7 @@ function update() {
     updateChunks.call(this);
 }
 
+// Difficulty function - increases difficulty over time
 function getDifficultyLevel() {
     return Math.floor(player.level / 3) + 1;
 }
@@ -703,10 +749,11 @@ function updateDifficulty() {
     const newDifficulty = getDifficultyLevel();
     if (newDifficulty > currentDifficulty) {
         currentDifficulty = newDifficulty;
-        maxEnemies = Math.min(5 + (currentDifficulty * 2), 15);
+        maxEnemies = Math.min(5 + (currentDifficulty * 2), 15); // Cap at 15 enemies
     }
 }
 
+// HP Bar function - creates and manages health bars
 function createHPBar(entity, width = 50, height = 6, color = 0xff0000) {
     entity.hpBarBg = entity.scene.add.rectangle(0, -40, width, height, 0x000000);
     entity.hpBarBg.setDepth(999);
@@ -720,10 +767,11 @@ function createHPBar(entity, width = 50, height = 6, color = 0xff0000) {
     };
 }
 
+// Enemy Limit function - manages enemy spawning based on limits
 function maintainEnemyLimit() {
     updateDifficulty();
     
-    
+    // Spawn new enemies if below limit
     if (currentEnemyCount < maxEnemies) {
         const enemiesToSpawn = Math.min(maxEnemies - currentEnemyCount, 2);
         for (let i = 0; i < enemiesToSpawn; i++) {
@@ -733,6 +781,7 @@ function maintainEnemyLimit() {
 }
 
 function spawnEnemies() {
+    // Spawn initial enemies around the player
     const initialSpawn = Math.min(maxEnemies, 3);
     
     for (let i = 0; i < initialSpawn; i++) {
@@ -741,6 +790,7 @@ function spawnEnemies() {
 }
 
 function spawnSingleEnemy() {
+    // Spawn enemy away from player
     const angle = Math.random() * Math.PI * 2;
     const distance = 300 + Math.random() * 200;
     const x = player.sprite.x + Math.cos(angle) * distance;
@@ -750,18 +800,21 @@ function spawnSingleEnemy() {
     enemies.push(enemy);
     currentEnemyCount++;
     
-    
+    // Setup collision for this enemy
     let canHit = true;
     this.physics.add.overlap(player.sprite, enemy.sprite, () => {
         if (canHit && enemy.isAlive && player.isAlive) {
+            // Player takes damage from enemy
             player.takeDamage(10 + (currentDifficulty * 5));
             canHit = false;
+            // Cooldown before next hit
             this.time.delayedCall(1000, () => {
                 canHit = true;
             });
         }
     });
     
+    // Add click to attack enemy
     enemy.sprite.setInteractive();
     enemy.sprite.on('pointerdown', () => {
         if (enemy.isAlive) {
@@ -771,6 +824,7 @@ function spawnSingleEnemy() {
 }
 
 function startDifficultyProgression() {
+    // Increase difficulty every 30 seconds
     this.time.addEvent({
         delay: 30000,
         callback: () => {
@@ -843,28 +897,30 @@ function generateChunk(chunkX, chunkY) {
             
             const grassVariant = generateGrassVariant(tileX * TILE_SIZE, tileY * TILE_SIZE);
             
+            // Get the appropriate grass tileset based on variant
+            // Place grass tile using single tilemap
             const tile = tileLayers.background.putTileAt(tilesets.grass.firstgid, tileX, tileY);
             
-            
+            // Apply cohesive tint variations for regional colors
             if (tile) {
                 switch (grassVariant) {
                     case 1:
-                        tile.tint = 0x90EE90;
+                        tile.tint = 0x90EE90; // Light green region
                         break;
                     case 2:
-                        tile.tint = 0x228B22;
+                        tile.tint = 0x228B22; // Forest green region
                         break;
                     case 3:
-                        tile.tint = 0x32CD32;
+                        tile.tint = 0x32CD32; // Lime green region
                         break;
                     case 4:
-                        tile.tint = 0x9ACD32;
+                        tile.tint = 0x9ACD32; // Yellow green region
                         break;
                     case 5:
-                        tile.tint = 0x6B8E23;
+                        tile.tint = 0x6B8E23; // Olive green region
                         break;
                     case 6:
-                        tile.tint = 0x7CFC00;
+                        tile.tint = 0x7CFC00; // Lawn green region
                         break;
                 }
             }
@@ -875,10 +931,12 @@ function generateChunk(chunkX, chunkY) {
 }
 
 function generateGrassVariant(x, y) {
+    // Use simpler noise for reliable regional grass types
     const noise1 = Math.sin(x * 0.005) * Math.cos(y * 0.005);
     const noise2 = Math.sin(x * 0.002 + 1000) * Math.cos(y * 0.002 + 1000);
     const combinedNoise = (noise1 + noise2) / 2;
     
+    // Create 6 distinct grass regions
     if (combinedNoise > 0.6) {
         return 1;
     } else if (combinedNoise > 0.2) {
@@ -980,10 +1038,12 @@ function generateChunk(chunkX, chunkY) {
 }
 
 function generateGrassVariant(x, y) {
+    // Use simpler noise for reliable regional grass types
     const noise1 = Math.sin(x * 0.005) * Math.cos(y * 0.005);
     const noise2 = Math.sin(x * 0.002 + 1000) * Math.cos(y * 0.002 + 1000);
     const combinedNoise = (noise1 + noise2) / 2;
     
+    // Create 6 distinct grass regions
     if (combinedNoise > 0.6) {
         return 1;
     } else if (combinedNoise > 0.2) {
