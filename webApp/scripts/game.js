@@ -60,13 +60,14 @@ class Entity {
     
     checkCollisionWith(otherEntity) {
         if (!this.isAlive || !otherEntity.isAlive) return false;
+        if (!this.sprite || !otherEntity.sprite) return false;
         
         const distance = Phaser.Math.Distance.Between(
             this.sprite.x, this.sprite.y,
             otherEntity.sprite.x, otherEntity.sprite.y
         );
         
-        const minDistance = (this.sprite.width + otherEntity.sprite.width) * 0.3;
+        const minDistance = 60;
         return distance < minDistance;
     }
 }
@@ -349,13 +350,38 @@ class Player extends Entity {
     }
     
     die() {
+        if (this.isDying) return;
+        this.isDying = true;
         this.isAlive = false;
         this.sprite.setVelocity(0);
-        this.sprite.setTint(0xff0000);
+        this.sprite.clearTint();
         
         this.scene.physics.pause();
         
-        this.showGameOverScreen();
+        this.playDeathAnimation();
+    }
+    
+    playDeathAnimation() {
+        if (this.deathAnimationStarted) return;
+        this.deathAnimationStarted = true;
+        
+        let deathFrame = 0;
+        const maxFrames = 10;
+        
+        const playNextFrame = () => {
+            if (deathFrame < maxFrames) {
+                this.sprite.setTexture(`death_${deathFrame}`);
+                deathFrame++;
+                
+                this.scene.time.delayedCall(200, playNextFrame);
+            } else {
+                this.scene.time.delayedCall(500, () => {
+                    this.showGameOverScreen();
+                });
+            }
+        };
+        
+        playNextFrame();
     }
     
     showGameOverScreen() {
@@ -511,10 +537,13 @@ class Enemy extends Entity {
         this.sprite.name = this.id;
         this.sprite.setDisplaySize(72, 72);
         
-        this.speed = 50;
+        this.speed = 75;
         this.health = 100;
         this.maxHealth = this.health;
         this.direction = Math.random() * Math.PI * 2;
+        
+        this.collisionRadius = 37.5 * 0.75;
+        this.hurtboxRadius = 35;
         
         this.createPatrolBehavior();
         
@@ -543,31 +572,99 @@ class Enemy extends Entity {
     
     createPatrolBehavior() {
         this.scene.time.addEvent({
-            delay: 2000,
+            delay: 200,
             callback: () => {
-                if (this.isAlive) {
-                    this.direction = Math.random() * Math.PI * 2;
+                if (this.isAlive && player && player.isAlive) {
+                    this.updateDirectionToPlayer();
                 }
             },
             loop: true
         });
     }
     
+    updateDirectionToPlayer() {
+        if (!player || !player.isAlive) return;
+        
+        const distanceToPlayer = Phaser.Math.Distance.Between(
+            this.sprite.x, this.sprite.y,
+            player.sprite.x, player.sprite.y
+        );
+        
+        const shadowDistance = 50;
+        
+        if (distanceToPlayer <= shadowDistance) {
+            if (!this.lockedDirection) {
+                this.lockedDirection = this.direction;
+            }
+            return;
+        } else {
+            this.lockedDirection = null;
+        }
+        
+        const angleToPlayer = Phaser.Math.Angle.Between(
+            this.sprite.x, this.sprite.y,
+            player.sprite.x, player.sprite.y
+        );
+        
+        let separationForceX = 0;
+        let separationForceY = 0;
+        const separationDistance = 60;
+        
+        if (enemies) {
+            enemies.forEach(otherEnemy => {
+                if (otherEnemy !== this && otherEnemy.isAlive) {
+                    const distance = Phaser.Math.Distance.Between(
+                        this.sprite.x, this.sprite.y,
+                        otherEnemy.sprite.x, otherEnemy.sprite.y
+                    );
+                    
+                    if (distance < separationDistance && distance > 0) {
+                        const separationStrength = (separationDistance - distance) / separationDistance;
+                        const angleAway = Phaser.Math.Angle.Between(
+                            otherEnemy.sprite.x, otherEnemy.sprite.y,
+                            this.sprite.x, this.sprite.y
+                        );
+                        
+                        separationForceX += Math.cos(angleAway) * separationStrength;
+                        separationForceY += Math.sin(angleAway) * separationStrength;
+                    }
+                }
+            });
+        }
+        
+        const playerForceX = Math.cos(angleToPlayer) * 0.7;
+        const playerForceY = Math.sin(angleToPlayer) * 0.7;
+        
+        const totalForceX = playerForceX + separationForceX * 0.5;
+        const totalForceY = playerForceY + separationForceY * 0.5;
+        
+        this.direction = Math.atan2(totalForceY, totalForceX);
+        
+        const randomOffset = (Math.random() - 0.5) * 0.2;
+        this.direction += randomOffset;
+    }
+    
     update() {
         super.update();
         
-        if (this.isAlive) {
-            const moveX = Math.cos(this.direction) * this.speed;
-            const moveY = Math.sin(this.direction) * this.speed;
+        if (this.isAlive && player && player.isAlive) {
+            this.updateDirectionToPlayer();
+            
+            const currentDirection = this.lockedDirection !== null ? this.lockedDirection : this.direction;
+            const moveX = Math.cos(currentDirection) * this.speed;
+            const moveY = Math.sin(currentDirection) * this.speed;
             
             this.sprite.setVelocity(moveX, moveY);
             
-            if (moveX < 0) {
+            if (moveX < -5) {
                 this.sprite.setFlipX(true);
-            } else if (moveX > 0) {
+            } else if (moveX > 5) {
                 this.sprite.setFlipX(false);
             }
             
+            this.updateHPBar();
+        } else if (this.isAlive) {
+            this.sprite.setVelocity(0, 0);
             this.updateHPBar();
         }
     }
@@ -689,6 +786,10 @@ function preload() {
         this.load.image(`run_${i}`, `../sprites/player/Run/HeroKnight_Run_${i}.png`);
     }
     
+    for (let i = 0; i < 10; i++) {
+        this.load.image(`death_${i}`, `../sprites/player/Death/HeroKnight_Death_${i}.png`);
+    }
+    
     this.load.image('enemy_sprite', '../sprites/enemies/lereon knight.png');
 }
 
@@ -756,35 +857,54 @@ function updateDifficulty() {
 }
 
 function checkEntityCollisions() {
-    if (!player || !player.isAlive) return;
+    if (!player || !player.isAlive || !enemies || enemies.length === 0) return;
     
     enemies.forEach(enemy => {
-        if (!enemy.isAlive) return;
+        if (!enemy || !enemy.isAlive || !enemy.sprite) return;
         
-        if (player.checkCollisionWith(enemy)) {
-            const enemyId = enemy.id;
-            const currentTime = this.time.now;
+        const distance = Phaser.Math.Distance.Between(
+            player.sprite.x, player.sprite.y,
+            enemy.sprite.x, enemy.sprite.y
+        );
+        
+        const hurtboxDistance = enemy.hurtboxRadius || 40;
+        
+        if (distance < hurtboxDistance) {
+            const enemyId = enemy.id || `enemy_${enemy.sprite.x}_${enemy.sprite.y}`;
+            const currentTime = Date.now();
             
             if (!player.collisionCooldowns.has(enemyId) || 
                 currentTime - player.collisionCooldowns.get(enemyId) > 1000) {
                 
-                player.takeDamage(10 + (currentDifficulty * 5));
+                const damage = 15 + (currentDifficulty * 5);
+                player.takeDamage(damage);
                 player.collisionCooldowns.set(enemyId, currentTime);
                 
+                player.sprite.setTint(0xff0000);
                 enemy.sprite.setTint(0xffaaaa);
-                this.time.delayedCall(200, () => {
-                    if (enemy.isAlive) {
+                setTimeout(() => {
+                    if (enemy && enemy.isAlive && enemy.sprite) {
                         enemy.sprite.setTint(0xff6666);
                     }
-                });
+                }, 200);
             }
         }
     });
     
-    enemies.forEach((enemy1, index1) => {
-        enemies.slice(index1 + 1).forEach(enemy2 => {
-            if (enemy1.isAlive && enemy2.isAlive && enemy1.checkCollisionWith(enemy2)) {
-                const pushForce = 30;
+    for (let i = 0; i < enemies.length; i++) {
+        for (let j = i + 1; j < enemies.length; j++) {
+            const enemy1 = enemies[i];
+            const enemy2 = enemies[j];
+            
+            if (!enemy1.isAlive || !enemy2.isAlive) continue;
+            
+            const distance = Phaser.Math.Distance.Between(
+                enemy1.sprite.x, enemy1.sprite.y,
+                enemy2.sprite.x, enemy2.sprite.y
+            );
+            
+            if (distance < 50) {
+                const pushForce = 20;
                 const angle = Phaser.Math.Angle.Between(
                     enemy1.sprite.x, enemy1.sprite.y,
                     enemy2.sprite.x, enemy2.sprite.y
@@ -795,17 +915,13 @@ function checkEntityCollisions() {
                 const pushX2 = Math.cos(angle) * pushForce;
                 const pushY2 = Math.sin(angle) * pushForce;
                 
-                enemy1.sprite.setVelocity(
-                    enemy1.sprite.body.velocity.x + pushX1,
-                    enemy1.sprite.body.velocity.y + pushY1
-                );
-                enemy2.sprite.setVelocity(
-                    enemy2.sprite.body.velocity.x + pushX2,
-                    enemy2.sprite.body.velocity.y + pushY2
-                );
+                enemy1.sprite.body.velocity.x += pushX1;
+                enemy1.sprite.body.velocity.y += pushY1;
+                enemy2.sprite.body.velocity.x += pushX2;
+                enemy2.sprite.body.velocity.y += pushY2;
             }
-        });
-    });
+        }
+    }
 }
 
 function createHPBar(entity, width = 50, height = 6, color = 0xff0000) {
