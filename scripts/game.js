@@ -1,3 +1,8 @@
+import { DAMAGE_TYPES, WEAPON_TYPES } from './data/weapons.js';
+import { ITEM_TYPES, ENHANCED_ITEM_TYPES } from './data/items.js';
+import { executeWeaponAttack } from './core/behaviors.js';
+import { BurnZone } from './core/zones.js';
+
 const DEBUG = false;
 
 const config = {
@@ -24,14 +29,7 @@ const config = {
     }
 };
 
-// Damage types and simple debuff configs
-const DAMAGE_TYPES = {
-    PHYSICAL: 'physical',
-    POISON: 'poison',
-    BURN: 'burn',
-    LIGHTNING: 'lightning',
-    ARMOR_WEAKEN: 'armor_weaken'
-};
+// Damage types imported from data/weapons.js
 
 // Simple game state to orchestrate intro/choice/play
 let GAME_STATE = 'intro'; // 'intro' | 'choice' | 'playing'
@@ -63,485 +61,8 @@ const ENEMY_TYPES = {
     'death_angel': { sprite: 'death_angel', size: 92, health: 200, damage: 35, baseSpeed: 55 },
     'legendary_dragon': { sprite: 'legendary_dragon', size: 120, health: 300, damage: 50, baseSpeed: 45 }
 };
-// Core weapons available for selection and drops
-const WEAPON_TYPES = {
-    'weapon_longsword': {
-        id: 'weapon_longsword',
-        sprite: 'weapon_longsword',
-        name: 'Longsword',
-        category: 'melee',
-        damageType: DAMAGE_TYPES.PHYSICAL,
-        rarity: 'common',
-        description: 'Reliable close-range blade.',
-        attackRange: 80,
-        swingDuration: 1000,
-        restAfterSwing: 1000,
-        projectile: false,
-        damage: () => 14,
-        speed: () => 1.0,
-        // Max-level behavior hint
-        maxBehavior: 'giant_thrust'
-    },
-    // Whip: simple long-reach melee at base
-    'weapon_whip': {
-        id: 'weapon_whip',
-        sprite: 'weapon_flail', // placeholder sprite
-        name: 'Whip',
-        category: 'melee',
-        damageType: DAMAGE_TYPES.PHYSICAL,
-        rarity: 'uncommon',
-        description: 'Long reach line lash.',
-        attackRange: 130,
-        swingDuration: 900,
-        restAfterSwing: 1000,
-        projectile: false,
-        damage: () => 12,
-        speed: () => 1.0,
-        maxBehavior: 'cone_whip'
-    },
-    // Claymore: heavy blade, base behaves like a broad swing
-    'weapon_claymore': {
-        id: 'weapon_claymore',
-        sprite: 'weapon_longsword', // placeholder sprite
-        name: 'Claymore',
-        category: 'melee',
-        damageType: DAMAGE_TYPES.PHYSICAL,
-        rarity: 'uncommon',
-        description: 'Heavy two-handed blade.',
-        attackRange: 100,
-        swingDuration: 1150,
-        restAfterSwing: 1100,
-        projectile: false,
-        damage: () => 18,
-        speed: () => 0.95,
-        maxBehavior: 'spin_orbit'
-    },
-    // Shield: short-range shove; base does knockback via unique effect
-    'weapon_shield': {
-        id: 'weapon_shield',
-        sprite: 'weapon_shield_icon',
-        name: 'Shield',
-        category: 'melee',
-        damageType: DAMAGE_TYPES.PHYSICAL,
-        rarity: 'uncommon',
-        description: 'Bash enemies back.',
-        attackRange: 70,
-        swingDuration: 800,
-        restAfterSwing: 900,
-        projectile: false,
-        damage: () => 8,
-        speed: () => 1.0,
-        maxBehavior: 'impervious'
-    },
-    // Torch: base simple fireball projectile with burn
-    'weapon_torch': {
-        id: 'weapon_torch',
-        sprite: 'weapon_torch_icon',
-        name: 'Torch',
-        category: 'magic',
-        damageType: DAMAGE_TYPES.BURN,
-        rarity: 'common',
-        description: 'Ignites foes with flames.',
-        attackRange: 220,
-        attackSpeed: 850,
-        projectile: true,
-        projectileSpeed: 360,
-        projectileSprite: 'fireball4',
-        projectileScale: 0.15,
-        damage: () => 9,
-        speed: () => 1.0,
-        maxBehavior: 'huge_burn'
-    },
-    // Stone: tiny fast projectile
-    'weapon_stone': {
-        id: 'weapon_stone',
-        sprite: 'weapon_stone_icon',
-        name: 'Stone',
-        category: 'bow',
-        damageType: DAMAGE_TYPES.PHYSICAL,
-        rarity: 'common',
-        description: 'Pebble toss with high speed.',
-        attackRange: 180,
-        attackSpeed: 350,
-        projectile: true,
-        projectileSpeed: 500,
-        projectileSprite: 'fireball5',
-        damage: () => 5,
-        speed: () => 1.0,
-        maxBehavior: 'split_rocks'
-    },
-    // Staff: simple lightning projectile at base
-    'weapon_staff': {
-        id: 'weapon_staff',
-        sprite: 'magic_wand',
-        name: 'Staff',
-        category: 'magic',
-        damageType: DAMAGE_TYPES.LIGHTNING,
-        rarity: 'rare',
-        description: 'Calls lightning to strike.',
-        attackRange: 240,
-        attackSpeed: 900,
-        projectile: true,
-        projectileSpeed: 360,
-        projectileSprite: 'fireball2',
-        damage: () => 11,
-        speed: () => 1.0,
-        maxBehavior: 'center_strike'
-    },
-    // Rose: poison thorns projectile
-    'weapon_rose': {
-        id: 'weapon_rose',
-        sprite: 'magic_orb', // placeholder sprite
-        name: 'Rose',
-        category: 'magic',
-        damageType: DAMAGE_TYPES.POISON,
-        rarity: 'uncommon',
-        description: 'Thorns that poison.',
-        attackRange: 220,
-        attackSpeed: 900,
-        projectile: true,
-        projectileSpeed: 360,
-        projectileSprite: 'fireball5',
-        damage: () => 8,
-        speed: () => 1.0,
-        maxBehavior: 'poison_aoe'
-    },
-    // Lantern: small zone melee tick around player
-    'weapon_lantern': {
-        id: 'weapon_lantern',
-        sprite: 'lantern',
-        name: 'Lantern',
-        category: 'melee',
-        damageType: DAMAGE_TYPES.BURN,
-        rarity: 'uncommon',
-        description: 'A faint burning aura.',
-        attackRange: 80,
-        swingDuration: 700,
-        restAfterSwing: 800,
-        projectile: false,
-        damage: () => 6,
-        speed: () => 1.0,
-        maxBehavior: 'double_zone'
-    },
-    // Claws: very fast, small arc
-    'weapon_claws': {
-        id: 'weapon_claws',
-        sprite: 'weapon_dagger', // placeholder sprite
-        name: 'Claws',
-        category: 'melee',
-        damageType: DAMAGE_TYPES.PHYSICAL,
-        rarity: 'uncommon',
-        description: 'Rapid slashes.',
-        attackRange: 60,
-        swingDuration: 500,
-        restAfterSwing: 700,
-        projectile: false,
-        damage: () => 9,
-        speed: () => 1.2,
-        maxBehavior: 'top_bottom_aoe'
-    },
-    // Fast, short-range stabber with bonus hit chance (see applyWeaponUniqueEffect)
-    'weapon_dagger': {
-        id: 'weapon_dagger',
-        sprite: 'weapon_dagger',
-        name: 'Swift Dagger',
-        category: 'melee',
-        damageType: DAMAGE_TYPES.PHYSICAL,
-        rarity: 'common',
-        description: 'Fast stabs, sometimes strikes twice.',
-        attackRange: 60,
-        swingDuration: 700,
-        restAfterSwing: 900,
-        projectile: false,
-        damage: () => 10,
-        speed: () => 1.2,
-        maxBehavior: 'rapid_flurry'
-    },
-    // Heavy axe with small splash (see applyWeaponUniqueEffect)
-    'weapon_doubleaxe': {
-        id: 'weapon_doubleaxe',
-        sprite: 'weapon_doubleaxe',
-        name: 'Double Axe',
-        category: 'melee',
-        damageType: DAMAGE_TYPES.PHYSICAL,
-        rarity: 'uncommon',
-        description: 'Heavy swings that cleave nearby foes.',
-        attackRange: 90,
-        swingDuration: 1200,
-        restAfterSwing: 1200,
-        projectile: false,
-        damage: () => 20,
-        speed: () => 0.9,
-        maxBehavior: 'whirlwind'
-    },
-    // Crystal Sword occasionally chains lightning (see applyWeaponUniqueEffect)
-    'weapon_crystalsword': {
-        id: 'weapon_crystalsword',
-        sprite: 'weapon_crystalsword',
-        name: 'Crystal Sword',
-        category: 'melee',
-        damageType: DAMAGE_TYPES.LIGHTNING,
-        rarity: 'rare',
-        description: 'A blade crackling with lightning.',
-        attackRange: 85,
-        swingDuration: 950,
-        restAfterSwing: 950,
-        projectile: false,
-        damage: () => 16,
-        speed: () => 1.0,
-        maxBehavior: 'giant_thrust'
-    },
-    // Long reach thrusts
-    'weapon_spear': {
-        id: 'weapon_spear',
-        sprite: 'weapon_spear',
-        name: 'Spear',
-        category: 'melee',
-        damageType: DAMAGE_TYPES.PHYSICAL,
-        rarity: 'common',
-        description: 'Long reach pierce.',
-        attackRange: 110,
-        swingDuration: 900,
-        restAfterSwing: 1000,
-        projectile: false,
-        damage: () => 14,
-        speed: () => 1.0,
-        maxBehavior: 'impale'
-    },
-    // Spiked ball on a chain
-    'weapon_flail': {
-        id: 'weapon_flail',
-        sprite: 'weapon_flail',
-        name: 'Rusty Flail',
-        category: 'melee',
-        damageType: DAMAGE_TYPES.PHYSICAL,
-        rarity: 'uncommon',
-        description: 'Sweeping arcs with hefty impact.',
-        attackRange: 120,
-        swingDuration: 1300,
-        restAfterSwing: 1100,
-        projectile: false,
-        damage: () => 18,
-        speed: () => 0.9,
-        maxBehavior: 'whirlwind'
-    },
-    'weapon_bow': {
-        id: 'weapon_bow',
-        sprite: 'weapon_bow',
-        name: 'Hunter Bow',
-        category: 'bow',
-        damageType: DAMAGE_TYPES.PHYSICAL,
-        rarity: 'uncommon',
-        description: 'Swift ranged bow.',
-        attackRange: 220,
-        attackSpeed: 900, // used for ranged cadence
-        projectile: true,
-        projectileSpeed: 420,
-    projectileSprite: 'arrow_move',
-        damage: () => 10,
-        speed: () => 1.1,
-        maxBehavior: 'spread_shot'
-    },
-    // Magic projectiles (fire)
-    'magic_wand': {
-        id: 'magic_wand',
-        sprite: 'magic_wand',
-        name: 'Wand',
-        category: 'magic',
-        damageType: DAMAGE_TYPES.BURN,
-        rarity: 'common',
-        description: 'Simple wand that launches firebolts.',
-        attackRange: 260,
-        attackSpeed: 850,
-        projectile: true,
-        projectileSpeed: 380,
-        projectileSprite: 'fireball1',
-        projectileScale: 0.12,
-        damage: () => 9,
-        speed: () => 1.0,
-        maxBehavior: 'inferno_spread'
-    },
-    'magic_crystalwand': {
-        id: 'magic_crystalwand',
-        sprite: 'magic_crystalwand',
-        name: 'Crystal Wand',
-        category: 'magic',
-        damageType: DAMAGE_TYPES.BURN,
-        rarity: 'uncommon',
-        description: 'Empowered firebolts with crystal focus.',
-        attackRange: 270,
-        attackSpeed: 820,
-        projectile: true,
-        projectileSpeed: 400,
-        projectileSprite: 'fireball2',
-        projectileScale: 0.14,
-        damage: () => 11,
-        speed: () => 1.0,
-        maxBehavior: 'inferno_spread'
-    },
-    'magic_spellbook': {
-        id: 'magic_spellbook',
-        sprite: 'magic_spellbook',
-        name: 'Spellbook',
-        category: 'magic',
-        damageType: DAMAGE_TYPES.POISON,
-        rarity: 'rare',
-        description: 'Whispers of toxic incantations.',
-        attackRange: 250,
-        attackSpeed: 900,
-        projectile: true,
-        projectileSpeed: 360,
-        projectileSprite: 'fireball3',
-        projectileScale: 0.13,
-        damage: () => 10,
-        speed: () => 1.0,
-        maxBehavior: 'inferno_spread'
-    },
-    'magic_orb': {
-        id: 'magic_orb',
-        sprite: 'magic_orb',
-        name: 'Orb',
-        category: 'magic',
-        damageType: DAMAGE_TYPES.BURN,
-        rarity: 'uncommon',
-        description: 'A hovering orb that launches fiery motes.',
-        attackRange: 240,
-        attackSpeed: 950,
-        projectile: true,
-        projectileSpeed: 320,
-        projectileSprite: 'fireball3',
-        projectileScale: 0.18,
-        damage: () => 10,
-        speed: () => 1.0,
-        maxBehavior: 'inferno_spread'
-    },
-    'magic_ring': {
-        id: 'magic_ring',
-        sprite: 'magic_ring',
-        name: 'Magic Ring',
-        category: 'magic',
-        damageType: DAMAGE_TYPES.LIGHTNING,
-        rarity: 'epic',
-        description: 'Sparks leap from a charged sigil.',
-        attackRange: 260,
-        attackSpeed: 800,
-        projectile: true,
-        projectileSpeed: 380,
-        projectileSprite: 'fireball4',
-        projectileScale: 0.15,
-        damage: () => 12,
-        speed: () => 1.0,
-        maxBehavior: 'spread_shot'
-    }
-};
-const ITEM_TYPES = {
-    // Keep one simple fallback item used elsewhere
-    'berry01blue': {
-        sprite: 'berry01blue',
-        name: 'Frost Berry',
-        category: 'berry',
-        rarity: 'common',
-        description: 'Provides steady health and minor speed',
-        effects: { health: () => 20, speed: () => 2 }
-    },
-    // Spec items
-    'sword_sharpener': { sprite: 'weapon_longsword', name: 'Sword Sharpener', category: 'item', rarity: 'common', description: 'Increases flat attack damage', effects: { damage: () => 5 } },
-    'arrow_quiver': { sprite: 'weapon_bow', name: 'Arrow Quiver', category: 'item', rarity: 'common', description: 'Increases projectile speed', effects: { projectileSpeed: () => 50 } },
-    'leather_handle': { sprite: 'weapon_dagger', name: 'Leather Handle', category: 'item', rarity: 'common', description: 'Increases handling, increases attack hit area', effects: { range: () => 10 } },
-    'null_magic_rock': { sprite: 'gem01orange', name: 'Null Magic Rock', category: 'item', rarity: 'uncommon', description: 'Decreases magic damage, increases attack damage', effects: { magicDamageDown: () => 10, damage: () => 8 } },
-    'iron_handle': { sprite: 'gem02blue', name: 'Iron Handle', category: 'item', rarity: 'uncommon', description: 'Slows down character, increases armor', effects: { speedDown: () => 5, defense: () => 5 } },
-    'leather_vest': { sprite: 'berry03purple', name: 'Leather Vest', category: 'item', rarity: 'common', description: 'Increases attack percent', effects: { damagePercent: () => 10 } },
-    'oil_jar': { sprite: 'glass01orange', name: 'Oil Jar', category: 'item', rarity: 'uncommon', description: 'Increase burn AOE', effects: { burnRadius: () => 20 } },
-    'glove': { sprite: 'berry04red', name: 'Glove', category: 'item', rarity: 'common', description: 'Increases weapon size', effects: { weaponSize: () => 0.1 } },
-    'rock_bag': { sprite: 'gem03yellow', name: 'Rock Bag', category: 'item', rarity: 'common', description: 'Increases attack speed', effects: { attackSpeed: () => 10 } },
-    'magic_book': { sprite: 'gem04purple', name: 'Magic Book', category: 'item', rarity: 'rare', description: 'Increase debuffs given to enemies', effects: { debuffPower: () => 1 } },
-    'wizard_robe': { sprite: 'gem05red', name: 'Wizard Robe', category: 'item', rarity: 'rare', description: 'Increases explosion radius', effects: { explosionRadius: () => 20 } },
-    'seeds': { sprite: 'berry01blue', name: 'Seeds', category: 'item', rarity: 'common', description: 'Increases poison damage', effects: { poisonDamage: () => 5 } },
-    'health_vile': { sprite: 'glass02blue', name: 'Health Vile', category: 'item', rarity: 'common', description: 'Increases healing per second', effects: { regeneration: () => 3 } }
-};
-const ENHANCED_ITEM_TYPES = {
-    'blueshroom': {
-        sprite: 'blueshroom',
-        name: 'Blue Mushroom',
-        category: 'consumable',
-        rarity: 'common',
-        description: 'Mysterious fungus with healing properties',
-        effects: {
-            health: () => Math.floor(25 + Math.random() * 20),
-            regeneration: () => Math.floor(1 + Math.random() * 2),
-        }
-    },
-    'bongo': {
-        sprite: 'bongo',
-        name: 'Battle Bongo',
-        category: 'artifact',
-        rarity: 'uncommon',
-        description: 'Rhythmic drums that boost combat performance',
-        effects: {
-            attackSpeed: () => Math.floor(15 + Math.random() * 20),
-            speed: () => Math.floor(8 + Math.random() * 12),
-        }
-    },
-    'clock': {
-        sprite: 'clock',
-        name: 'Time Keeper',
-        category: 'artifact',
-        rarity: 'rare',
-        description: 'Ancient timepiece that manipulates temporal flow',
-        effects: {
-            attackSpeed: () => Math.floor(20 + Math.random() * 25),
-            dodgeChance: () => Math.floor(8 + Math.random() * 15),
-        }
-    },
-    'crown': {
-        sprite: 'crown',
-        name: 'Royal Crown',
-        category: 'artifact',
-        rarity: 'epic',
-        description: 'Majestic headpiece that enhances all abilities',
-        effects: {
-            maxHealth: () => Math.floor(30 + Math.random() * 40),
-            damage: () => Math.floor(8 + Math.random() * 15),
-            speed: () => Math.floor(10 + Math.random() * 15),
-        }
-    },
-    'diamond': {
-        sprite: 'diamond',
-        name: 'Perfect Diamond',
-        category: 'gem',
-        rarity: 'legendary',
-        description: 'Flawless crystal that amplifies inner power',
-        effects: {
-            critChance: () => Math.floor(15 + Math.random() * 20),
-            critDamage: () => Math.floor(25 + Math.random() * 35),
-            damage: () => Math.floor(12 + Math.random() * 20),
-        }
-    },
-    'goldencup': {
-        sprite: 'goldencup',
-        name: 'Golden Chalice',
-        category: 'artifact',
-        rarity: 'epic',
-        description: 'Sacred vessel that overflows with life energy',
-        effects: {
-            maxHealth: () => Math.floor(50 + Math.random() * 50),
-            regeneration: () => Math.floor(3 + Math.random() * 5),
-            health: () => Math.floor(60 + Math.random() * 80),
-        }
-    },
-    'lantern': {
-        sprite: 'lantern',
-        name: 'Guiding Lantern',
-        category: 'tool',
-        rarity: 'uncommon',
-        description: 'Illuminating beacon that reveals hidden potential',
-        effects: {
-            speed: () => Math.floor(12 + Math.random() * 18),
-            dodgeChance: () => Math.floor(5 + Math.random() * 10),
-            defense: () => Math.floor(3 + Math.random() * 7),
-        }
-    }
-};
+// WEAPON_TYPES imported from data/weapons.js
+// ITEM_TYPES and ENHANCED_ITEM_TYPES imported from data/items.js
 class Projectile {
     constructor(scene, x, y, targetX, targetY, weapon, damage) {
         this.scene = scene;
@@ -561,35 +82,44 @@ class Projectile {
     }
     createProjectileSprite() {
         // Prefer an explicit projectile sprite when provided
+        let usedKey = null;
         if (this.weapon.projectileSprite) {
-            this.sprite = this.scene.add.sprite(this.startX, this.startY, this.weapon.projectileSprite);
+            usedKey = this.weapon.projectileSprite;
+            this.sprite = this.scene.add.sprite(this.startX, this.startY, usedKey);
         } else {
             switch (this.weapon.category) {
                 case 'bow':
-                    this.sprite = this.scene.add.sprite(this.startX, this.startY, 'arrow_move');
+                    usedKey = 'arrow_move';
+                    this.sprite = this.scene.add.sprite(this.startX, this.startY, usedKey);
                     this.sprite.setScale(0.8);
                     break;
                 case 'magic':
                     if (this.weapon.name.includes('Wand')) {
-                        this.sprite = this.scene.add.sprite(this.startX, this.startY, 'fireball1');
+                        usedKey = 'fireball1';
+                        this.sprite = this.scene.add.sprite(this.startX, this.startY, usedKey);
                         this.animateFireball();
                     } else if (this.weapon.name.includes('Orb')) {
-                        this.sprite = this.scene.add.sprite(this.startX, this.startY, 'fireball3');
-                        this.sprite.setScale(1.2);
+                        usedKey = 'fireball3';
+                        this.sprite = this.scene.add.sprite(this.startX, this.startY, usedKey);
                         this.animateOrb();
                     } else {
-                        this.sprite = this.scene.add.sprite(this.startX, this.startY, 'fireball1');
+                        usedKey = 'fireball1';
+                        this.sprite = this.scene.add.sprite(this.startX, this.startY, usedKey);
                         this.animateFireball();
                     }
                     break;
                 default:
-                    this.sprite = this.scene.add.sprite(this.startX, this.startY, 'fireball1');
+                    usedKey = 'fireball1';
+                    this.sprite = this.scene.add.sprite(this.startX, this.startY, usedKey);
                     break;
             }
         }
-        // Apply per-weapon projectile scale if provided (keeps visuals tame)
-        if (this.weapon && typeof this.weapon.projectileScale === 'number') {
-            this.sprite.setScale(this.weapon.projectileScale);
+        // Unify fireball sizes: use a common base scale, only modified by player's item buffs
+        const key = usedKey || (this.sprite && this.sprite.texture && this.sprite.texture.key) || '';
+        if (key.startsWith('fireball')) {
+            const BASE_FIREBALL_SCALE = 0.12;
+            const sizeBuff = (typeof player !== 'undefined' && player && player.weaponSizeScale) ? player.weaponSizeScale : 1.0;
+            this.sprite.setScale(BASE_FIREBALL_SCALE * sizeBuff);
         }
         this.sprite.setDepth(50);
         this.sprite.setRotation(this.angle);
@@ -620,6 +150,16 @@ class Projectile {
     update() {
         if (!this.isAlive || !this.sprite) return;
         const dt = (this.scene && this.scene.game && this.scene.game.loop) ? (this.scene.game.loop.delta / 1000) : (1/60);
+        // Wand max: leave a burn trail along the path
+        if (this.weapon && this.weapon.special === 'wand_burn_trail') {
+            this._trailAcc = (this._trailAcc || 0) + (dt*1000);
+            if (this._trailAcc >= 120) {
+                this._trailAcc = 0;
+                // small burn zone with short duration
+                const dps = Math.max(1, Math.floor(this.damage * 0.15));
+                zones.push(new BurnZone(this.scene, this.sprite.x, this.sprite.y, 40, dps, 600));
+            }
+        }
         this.sprite.x += this.velocityX * dt;
         this.sprite.y += this.velocityY * dt;
         const distanceToTarget = Phaser.Math.Distance.Between(
@@ -630,6 +170,7 @@ class Projectile {
         );
         if (distanceToTarget < 30 || distanceTraveled > this.weapon.attackRange) {
             this.explode();
+            return; // prevent collision checks after sprite is destroyed
         }
         // Throttle collision checks to every other frame to reduce CPU
         this._tickCounter = (this._tickCounter || 0) + 1;
@@ -638,7 +179,10 @@ class Projectile {
         }
     }
     checkEnemyCollision() {
+        if (!this.sprite) return;
         enemies.forEach(enemy => {
+            // If this projectile already exploded mid-iteration, skip further processing safely
+            if (!this.sprite || !this.isAlive) return;
             if (enemy.isAlive && !this.hitTargets.has(enemy.id)) {
                 const distance = Phaser.Math.Distance.Between(
                     this.sprite.x, this.sprite.y,
@@ -647,6 +191,30 @@ class Projectile {
                 if (distance < 25) {
                     this.hitTargets.add(enemy.id);
                     enemy.takeDamage(this.damage);
+                    // Rose max: poison AOE around hit target
+                    if (this.weapon && this.weapon.special === 'rose_poison_aoe') {
+                        enemies.forEach(e => {
+                            if (!e.isAlive) return;
+                            const d = Phaser.Math.Distance.Between(enemy.sprite.x, enemy.sprite.y, e.sprite.x, e.sprite.y);
+                            if (d <= 70) {
+                                e.takeDamage(Math.floor(this.damage * 0.5));
+                                if (e.applyDebuff) e.applyDebuff(DAMAGE_TYPES.POISON, 1 + (player?.debuffPower || 0));
+                            }
+                        });
+                    }
+                    // Special interactions per weapon
+                    if (this.weapon && this.weapon.special === 'stone_split') {
+                        // Spawn smaller rocks on first hit
+                        const splits = 2;
+                        for (let i = 0; i < splits; i++) {
+                            const ang = (Math.PI/4) * (i===0 ? 1 : -1);
+                            const endX = this.sprite.x + Math.cos(this.angle + ang) * 120;
+                            const endY = this.sprite.y + Math.sin(this.angle + ang) * 120;
+                            const p = new Projectile(this.scene, this.sprite.x, this.sprite.y, endX, endY, {...this.weapon}, Math.floor(this.damage*0.6));
+                            projectiles.push(p);
+                        }
+                        this.weapon.special = undefined; // only once per projectile
+                    }
                     // Apply debuff from projectile's weapon type
                     if (this.weapon && this.weapon.damageType && enemy.applyDebuff) {
                         enemy.applyDebuff(this.weapon.damageType, 1 + (player?.debuffPower || 0));
@@ -655,6 +223,12 @@ class Projectile {
                     player.showFloatingDamage(enemy, this.damage);
                     if (!this.weapon.piercing) {
                         this.explode();
+                        return; // stop processing more enemies this tick; guard forEach
+                    } else {
+                        // spear max mode: increase damage when kill happens via projectile
+                        if (!enemy.isAlive && this.weapon.id === 'weapon_spear' && this.weapon.maxMode) {
+                            this.damage = Math.floor(this.damage * 1.2);
+                        }
                     }
                 }
             }
@@ -879,7 +453,9 @@ class Player extends Entity {
         this.critDamage = 150;
         this.dodgeChance = 0;
         this.regeneration = 0;
-        this.attackSpeed = 100;
+    this.attackSpeed = 100;
+    // Size scaling for weapons/projectiles via item buffs
+    this.weaponSizeScale = 1.0;
         this.slowResistance = 0;
     this.debuffPower = 0; // boosts strength/duration of applied debuffs
         this.inventory = [];
@@ -1114,6 +690,8 @@ class Player extends Entity {
             if (currentLevel >= this.maxWeaponLevel) {
                 // Already max level, lightly buff damage a bit
                 existing.instanceDamage = Math.floor(existing.instanceDamage * 1.05);
+                // Ensure UI reflects any state changes
+                this.updateInventoryUI();
                 return;
             }
             const nextLevel = currentLevel + 1;
@@ -1125,6 +703,8 @@ class Player extends Entity {
             if (nextLevel >= this.maxWeaponLevel) {
                 this.applyMaxWeaponBehavior(existing);
             }
+            // Refresh inventory to update "Lv X" badge immediately
+            this.updateInventoryUI();
             return;
         }
 
@@ -1152,6 +732,8 @@ class Player extends Entity {
             this.updateInventoryUI();
         }
         this.applyWeaponEffects(weaponInstance);
+        // Always refresh inventory so the new slot appears immediately
+        this.updateInventoryUI();
     }
 
     scaleWeaponStats(weaponInstance) {
@@ -1270,6 +852,10 @@ class Player extends Entity {
                 break;
             case 'debuffPower':
                 this.debuffPower += value;
+                break;
+            case 'weaponSize':
+                // value is expected as +0.1 for +10%
+                this.weaponSizeScale *= (1 + value);
                 break;
         }
     }
@@ -1533,7 +1119,11 @@ class Player extends Entity {
             'epic': 4,
             'legendary': 1
         };
-    const allItems = { ...ITEM_TYPES, ...ENHANCED_ITEM_TYPES, ...WEAPON_TYPES };
+        // If weapon slots are full, do not offer weapons
+        const includeWeapons = (this.weapons.length < this.maxWeapons);
+        const allItems = includeWeapons
+            ? { ...ITEM_TYPES, ...ENHANCED_ITEM_TYPES, ...WEAPON_TYPES }
+            : { ...ITEM_TYPES, ...ENHANCED_ITEM_TYPES };
         const allItemKeys = Object.keys(allItems);
         const selectedItems = [];
         for (let i = 0; i < count; i++) {
@@ -1546,6 +1136,7 @@ class Player extends Entity {
                 const chance = Math.random() * 100;
                 if (chance < rarityWeight) {
                     const isWeapon = WEAPON_TYPES[randomKey] !== undefined;
+                    if (isWeapon && !includeWeapons) { attempts++; continue; }
                     const randomizedItem = {
                         id: randomKey,
                         sprite: itemData.sprite,
@@ -1668,6 +1259,9 @@ class Player extends Entity {
                 case 'slowResistance':
                     this.slowResistance += value;
                     break;
+                case 'weaponSize':
+                    this.weaponSizeScale *= (1 + value);
+                    break;
             }
         }
         this.updateUI();
@@ -1748,25 +1342,17 @@ class Player extends Entity {
     }
 
     performContinuousAttackFor(weapon, target) {
+        // Try weapon-specific behaviors first; fall back to generic
+        const handled = executeWeaponAttack(this.scene, this, weapon, target, enemies, projectiles, zones);
+        if (handled) return;
         if (weapon.projectile) {
             if (target) {
-                let attackAngle = Phaser.Math.Angle.Between(
-                    this.sprite.x, this.sprite.y,
-                    target.sprite.x, target.sprite.y
-                );
-                // Remove half-circle arc/trail for projectile weapons (bow, wands, etc.)
                 this.performWeaponAttack(weapon, target);
             }
         } else {
-            let attackAngle;
-            if (target) {
-                attackAngle = Phaser.Math.Angle.Between(
-                    this.sprite.x, this.sprite.y,
-                    target.sprite.x, target.sprite.y
-                );
-            } else {
-                attackAngle = this.lastFacingAngle || 0;
-            }
+            let attackAngle = target
+                ? Phaser.Math.Angle.Between(this.sprite.x, this.sprite.y, target.sprite.x, target.sprite.y)
+                : (this.lastFacingAngle || 0);
             this.createWeaponAttackFor(weapon, attackAngle);
             this.createAttackHitboxFor(weapon, attackAngle);
         }
@@ -1848,6 +1434,31 @@ class Player extends Entity {
             const weaponEntity = new WeaponEntity(this.scene, this, weapon, angle);
             this.activeMeleeAttacks.set(wId, weaponEntity);
         }
+    }
+    // Create a melee hitbox using the provided weapon (used by auto-attack per-weapon loop)
+    createAttackHitboxFor(weapon, angle) {
+        if (!weapon) return;
+        const hitboxDistance = 50;
+        const hitboxX = this.sprite.x + Math.cos(angle) * hitboxDistance;
+        const hitboxY = this.sprite.y + Math.sin(angle) * hitboxDistance;
+        const slashLength = weapon && weapon.attackRange ? weapon.attackRange : 60;
+        // Draw a lightweight arc and apply damage via shared area check
+        const g = this.scene.add.graphics();
+        g.lineStyle(4, 0xFFFFFF, 0.7);
+        g.setDepth(100);
+        const slashAngle = Math.PI / 3;
+        const startAngle = angle - slashAngle / 2;
+        const endAngle = angle + slashAngle / 2;
+        g.beginPath();
+        g.arc(this.sprite.x, this.sprite.y, slashLength, startAngle, endAngle);
+        g.strokePath();
+        this.checkEnemiesInAttackArea(hitboxX, hitboxY, slashLength, weapon);
+        this.scene.tweens.add({
+            targets: g,
+            alpha: 0,
+            duration: 220,
+            onComplete: () => g.destroy()
+        });
     }
     checkEnemiesInAttackArea(centerX, centerY, radius, weaponOverride = null) {
         enemies.forEach(enemy => {
@@ -1932,6 +1543,10 @@ class Player extends Entity {
         } else {
             this.lastTrailAt.set(wid, now);
         }
+        const slashLength = weapon && weapon.attackRange ? weapon.attackRange : 60;
+        const slashAngle = Math.PI / 3;
+        const startAngle = angle - slashAngle / 2;
+        const endAngle = angle + slashAngle / 2;
         let slashEffect = null;
         if (allowTrail) {
             slashEffect = this.scene.add.graphics();
@@ -1941,10 +1556,6 @@ class Player extends Entity {
             slashEffect.arc(this.sprite.x, this.sprite.y, slashLength, startAngle, endAngle);
             slashEffect.strokePath();
         }
-    const slashLength = weapon && weapon.attackRange ? weapon.attackRange : 60;
-        const slashAngle = Math.PI / 3;
-        const startAngle = angle - slashAngle / 2;
-        const endAngle = angle + slashAngle / 2;
         target.takeDamage(damage);
         if (weapon && weapon.damageType && target.applyDebuff) {
             target.applyDebuff(weapon.damageType, 1 + (this.debuffPower || 0));
@@ -1962,6 +1573,15 @@ class Player extends Entity {
         }
     }
     showFloatingDamage(target, damage) {
+        // Throttle floating damage texts per enemy to avoid text spam and GC spikes
+        this.damageTextCooldowns = this.damageTextCooldowns || new Map();
+        const now = this.scene.time.now || Date.now();
+        const id = target.id || target.sprite?.name || `${target.sprite.x}_${target.sprite.y}`;
+        const lastAt = this.damageTextCooldowns.get(id) || 0;
+        if (now - lastAt < 200) {
+            return; // skip frequent texts
+        }
+        this.damageTextCooldowns.set(id, now);
         const damageText = this.scene.add.text(
             target.sprite.x,
             target.sprite.y - 20,
@@ -1970,9 +1590,7 @@ class Player extends Entity {
                 fontSize: '16px',
                 fontFamily: '"Inter", "Roboto", sans-serif',
                 fill: '#ff4444',
-                fontStyle: 'bold',
-                stroke: '#000000',
-                strokeThickness: 2
+                fontStyle: 'bold'
             }
         );
         damageText.setDepth(1000);
@@ -2141,6 +1759,11 @@ class Player extends Entity {
     }
     takeDamage(amount) {
         if (!this.isAlive) return;
+        // Shield max: brief impervious window support
+        const now = this.scene.time.now || Date.now();
+        if (this.imperviousUntil && now < this.imperviousUntil) {
+            return;
+        }
         this.currentHealth -= amount;
         if (this.currentHealth < 0) this.currentHealth = 0;
         this.sprite.setTint(0xff0000);
@@ -2363,7 +1986,8 @@ class Enemy extends Entity {
         this.collisionRadius = shadowSize * 0.75;
         this.hurtboxRadius = Math.max(25, scaledSize * 0.45);
         this.shadow.setSize(shadowSize, shadowSize * 0.5);
-        this.createPatrolBehavior();
+    // Removed timer-based direction updates to reduce CPU; updates happen in update()
+    // this.createPatrolBehavior();
         this.createHPBar();
         if (enemyData.animated) {
             this.createAnimations();
@@ -2425,17 +2049,7 @@ class Enemy extends Entity {
             this.hpBarFill.scaleX = healthPercent;
         }
     }
-    createPatrolBehavior() {
-        this.scene.time.addEvent({
-            delay: 200,
-            callback: () => {
-                if (this.isAlive && player && player.isAlive) {
-                    this.updateDirectionToPlayer();
-                }
-            },
-            loop: true
-        });
-    }
+    createPatrolBehavior() { /* no-op: handled in update() for performance */ }
     updateDirectionToPlayer() {
         if (!player || !player.isAlive) return;
         const distanceToPlayer = Phaser.Math.Distance.Between(
@@ -2610,6 +2224,7 @@ let tilemap;
 let tileLayers = {};
 let tilesets = {};
 let enemies = [];
+let zones = [];
 let currentDifficulty = 2;
 let globalEnemySpeedBonus = 0;
 let projectiles = [];
@@ -2857,6 +2472,10 @@ function update() {
             }
         });
         projectiles = projectiles.filter(projectile => projectile.isAlive);
+        // Update zones (burn, lightning, lantern)
+        const dt = this.game.loop.delta; // ms
+        zones.forEach(z => { if (z.isAlive && z.update) z.update(dt, enemies); });
+        zones = zones.filter(z => z.isAlive);
         maintainEnemyLimit.call(this);
     }
     updateChunks.call(this);
@@ -2962,8 +2581,11 @@ function checkEntityCollisions() {
             }
         }
     });
-    for (let i = 0; i < enemies.length; i++) {
-        for (let j = i + 1; j < enemies.length; j++) {
+    // Throttle heavy O(n^2) separation checks to reduce frame drops
+    checkEntityCollisions._sepTick = (checkEntityCollisions._sepTick || 0) + 1;
+    if ((checkEntityCollisions._sepTick % 6) === 0) {
+        for (let i = 0; i < enemies.length; i++) {
+            for (let j = i + 1; j < enemies.length; j++) {
             const enemy1 = enemies[i];
             const enemy2 = enemies[j];
             if (!enemy1.isAlive || !enemy2.isAlive) continue;
@@ -2986,6 +2608,7 @@ function checkEntityCollisions() {
                 enemy2.sprite.body.velocity.x += pushX2;
                 enemy2.sprite.body.velocity.y += pushY2;
             }
+        }
         }
     }
 }

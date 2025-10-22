@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Pickyside&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.js"></script>
-    <script src="../scripts/game.js"></script>
+    <script type="module" src="../scripts/game.js"></script>
     <style>
         body {
             margin: 0;
@@ -77,17 +77,18 @@
 <body>
     <div id="topNav">
         <a href="../index.html"><button>Home</button></a>
+        <a href="game.html"><button>Play</button></a>
         <a href="register.html"><button>Register</button></a>
         <a href="login.html"><button>Login</button></a>
         <a href="leaderboard.html"><button>Leaderboard</button></a>
-        <a href="tutorial.html"><button>Tutorial</button></a>
+        
     </div>
     
     <div class="main-content">
         <div id="gameContainer"></div>
         
         <div class="game-instructions">
-            <h2>Placeholder</h2>
+            <h2>Use W A S D to move!</h2>
         </div>
     </div>
 </body>
