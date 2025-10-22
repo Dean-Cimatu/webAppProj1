@@ -1,3 +1,5 @@
+const DEBUG = false;
+
 const config = {
     type: Phaser.AUTO,
     width: window.innerWidth,
@@ -631,7 +633,7 @@ class Projectile {
         this.targetY = targetY;
         this.weapon = weapon;
         this.damage = damage;
-        this.speed = 300;
+        this.speed = (weapon && weapon.projectileSpeed) ? weapon.projectileSpeed : 300;
         this.isAlive = true;
         this.hitTargets = new Set();
         this.createProjectileSprite();
@@ -687,8 +689,9 @@ class Projectile {
     }
     update() {
         if (!this.isAlive || !this.sprite) return;
-        this.sprite.x += this.velocityX * (1/60);
-        this.sprite.y += this.velocityY * (1/60);
+        const dt = (this.scene && this.scene.game && this.scene.game.loop) ? (this.scene.game.loop.delta / 1000) : (1/60);
+        this.sprite.x += this.velocityX * dt;
+        this.sprite.y += this.velocityY * dt;
         const distanceToTarget = Phaser.Math.Distance.Between(
             this.sprite.x, this.sprite.y, this.targetX, this.targetY
         );
@@ -757,8 +760,10 @@ class Entity {
         this.sprite.setDepth(1);
         this.hitbox = this.sprite.body;
         if (this.hitbox) {
-            this.hitbox.setSize(this.sprite.width * 0.6, this.sprite.height * 0.8);
-            this.hitbox.setOffset(this.sprite.width * 0.2, this.sprite.height * 0.2);
+            const w = this.sprite.displayWidth || this.sprite.width;
+            const h = this.sprite.displayHeight || this.sprite.height;
+            this.hitbox.setSize(w * 0.6, h * 0.8);
+            this.hitbox.setOffset(w * 0.2, h * 0.2);
         }
         this.isAlive = true;
     }
@@ -807,7 +812,7 @@ class WeaponEntity extends Entity {
             this.shadow = null;
         }
         this.performAttackAnimation();
-        console.log("🗡️ WeaponEntity created:", weaponData.name, "at angle:", attackAngle);
+        if (DEBUG) console.log("🗡️ WeaponEntity created:", weaponData.name, "at angle:", attackAngle);
     }
     positionWeapon() {
         const distance = 50;
@@ -829,7 +834,7 @@ class WeaponEntity extends Entity {
             duration: this.attackDuration,
             ease: 'Power2',
             onComplete: () => {
-                console.log("✅ WeaponEntity attack animation completed");
+                if (DEBUG) console.log("✅ WeaponEntity attack animation completed");
                 this.destroy();
             }
         });
@@ -862,7 +867,7 @@ class WeaponEntity extends Entity {
         }
     }
     destroy() {
-        console.log("🗡️ WeaponEntity destroyed");
+        if (DEBUG) console.log("🗡️ WeaponEntity destroyed");
         super.destroy();
     }
 }
@@ -1409,17 +1414,18 @@ class Player extends Entity {
         this.updateUI();
     }
     update() {
+        super.update();
         if (this.isAlive) {
             this.updateHPBar();
             if (this.currentWeapon) {
                 if (!this.frameCount) this.frameCount = 0;
                 this.frameCount++;
-                if (this.frameCount % 60 === 0) {
+                if (DEBUG && this.frameCount % 60 === 0) {
                     console.log(`Update loop running - Frame: ${this.frameCount}, Time: ${this.scene.time.now}, Weapon: ${this.currentWeapon.name}`);
                 }
                 this.autoAttack();
             } else {
-                console.log("Player update: No current weapon!");
+                if (DEBUG) console.log("Player update: No current weapon!");
             }
         }
     }
@@ -1443,13 +1449,15 @@ class Player extends Entity {
     }
     autoAttack() {
         if (!this.autoAttackEnabled || !this.currentWeapon) {
-            console.log("Auto-attack blocked:", { enabled: this.autoAttackEnabled, weapon: !!this.currentWeapon });
+            if (DEBUG) console.log("Auto-attack blocked:", { enabled: this.autoAttackEnabled, weapon: !!this.currentWeapon });
             return;
         }
         const currentTime = this.scene.time.now;
-        const attackCooldown = 800;
+        const baseCooldown = (this.currentWeapon && this.currentWeapon.attackSpeed) ? this.currentWeapon.attackSpeed : 800;
+        // Reduce cooldown by player's attackSpeed bonus (percentage). Clamp to a sensible minimum
+        const attackCooldown = Math.max(200, Math.floor(baseCooldown * 100 / (100 + this.attackSpeed)));
         const timeSinceLastAttack = currentTime - this.lastAttackTime;
-        if (this.frameCount % 60 === 0) {
+        if (DEBUG && this.frameCount % 60 === 0) {
             console.log(`🔄 AUTO-ATTACK CHECK - Time since last: ${timeSinceLastAttack}ms / ${attackCooldown}ms needed`);
             console.log(`Current weapon: ${this.currentWeapon ? this.currentWeapon.name : 'none'}`);
             console.log(`Auto-attack enabled: ${this.autoAttackEnabled}`);
@@ -1458,8 +1466,10 @@ class Player extends Entity {
             return;
         }
         const target = this.findNearestEnemy();
-        console.log(`🗡️ ⚔️ ATTACK TRIGGERED! ⚔️ Time: ${currentTime}, Last: ${this.lastAttackTime}, Difference: ${timeSinceLastAttack}`);
-        console.log(`🎯 Target found: ${target ? 'YES' : 'NO'}`);
+        if (DEBUG) {
+            console.log(`🗡️ ⚔️ ATTACK TRIGGERED! ⚔️ Time: ${currentTime}, Last: ${this.lastAttackTime}, Difference: ${timeSinceLastAttack}`);
+            console.log(`🎯 Target found: ${target ? 'YES' : 'NO'}`);
+        }
         this.performContinuousAttack(target);
         this.lastAttackTime = currentTime;
     }
@@ -1488,11 +1498,11 @@ class Player extends Entity {
         }
     }
     showWeaponSwingAtAngle(angle) {
-        console.log("🗡️ SHOWING DRAMATIC WEAPON SWING at angle:", angle, "Time:", this.scene.time.now);
+        if (DEBUG) console.log("🗡️ SHOWING DRAMATIC WEAPON SWING at angle:", angle, "Time:", this.scene.time.now);
         const slashEffect = this.scene.add.graphics();
         slashEffect.lineStyle(12, 0xFFD700, 1);
         slashEffect.setDepth(200);
-        const radius = 80;
+        const radius = this.currentWeapon && this.currentWeapon.attackRange ? this.currentWeapon.attackRange : 80;
         const arcStartAngle = angle - Math.PI / 2;
         const arcEndAngle = angle + Math.PI / 2;
         slashEffect.beginPath();
@@ -1506,25 +1516,25 @@ class Player extends Entity {
             duration: 400,
             onComplete: () => slashEffect.destroy()
         });
-        console.log("✨ Slash effect created - WeaponEntity handles the actual weapon display");
+        if (DEBUG) console.log("✨ Slash effect created - WeaponEntity handles the actual weapon display");
     }
     createWeaponAttack(angle) {
         if (!this.currentWeapon) {
             console.log("❌ No weapon to create attack with!");
             return;
         }
-        console.log("🗡️ Creating WeaponEntity attack at angle:", angle);
+        if (DEBUG) console.log("🗡️ Creating WeaponEntity attack at angle:", angle);
         const weaponEntity = new WeaponEntity(this.scene, this, this.currentWeapon, angle);
     }
     createAttackHitbox(angle) {
-        console.log("Creating attack hitbox at angle:", angle);
+    if (DEBUG) console.log("Creating attack hitbox at angle:", angle);
         const hitboxDistance = 50;
         const hitboxX = this.sprite.x + Math.cos(angle) * hitboxDistance;
         const hitboxY = this.sprite.y + Math.sin(angle) * hitboxDistance;
         const slashEffect = this.scene.add.graphics();
         slashEffect.lineStyle(6, 0xFFFFFF, 1);
         slashEffect.setDepth(100);
-        const slashLength = 60;
+    const slashLength = this.currentWeapon && this.currentWeapon.attackRange ? this.currentWeapon.attackRange : 60;
         const slashAngle = Math.PI / 3;
         const startAngle = angle - slashAngle / 2;
         const endAngle = angle + slashAngle / 2;
@@ -1595,7 +1605,7 @@ class Player extends Entity {
         const hitboxY = this.sprite.y + Math.sin(angle) * hitboxDistance;
         const slashEffect = this.scene.add.graphics();
         slashEffect.lineStyle(4, 0xFFFFFF, 1);
-        const slashLength = 60;
+    const slashLength = this.currentWeapon && this.currentWeapon.attackRange ? this.currentWeapon.attackRange : 60;
         const slashAngle = Math.PI / 3;
         const startAngle = angle - slashAngle / 2;
         const endAngle = angle + slashAngle / 2;
@@ -1923,6 +1933,10 @@ class Player extends Entity {
         }
         if (moveX !== 0 && moveY !== 0) {
             this.lastFacingAngle = Math.atan2(moveY, moveX);
+            // Normalize diagonal speed so total magnitude remains consistent
+            const vx = this.sprite.body?.velocity?.x || 0;
+            const vy = this.sprite.body?.velocity?.y || 0;
+            this.sprite.setVelocity(vx / Math.SQRT2, vy / Math.SQRT2);
         }
         if (this.isMoving) {
             if (this.sprite.anims.currentAnim?.key !== 'run') {
@@ -1933,9 +1947,6 @@ class Player extends Entity {
                 this.sprite.play('idle');
             }
         }
-    }
-    update() {
-        super.update();
     }
 }
 class Enemy extends Entity {
@@ -2337,12 +2348,14 @@ function create() {
     createEffectAnimations.call(this);
     const startingWeapon = { ...WEAPON_TYPES['weapon_longsword'] };
     player.addWeapon(startingWeapon);
-    console.log("Starting weapon:", startingWeapon);
-    console.log("Player current weapon:", player.currentWeapon);
-    console.log("Auto-attack enabled:", player.autoAttackEnabled);
-    console.log("Weapon sprite created:", player.weaponSprite);
-    console.log("Player lastAttackTime:", player.lastAttackTime);
-    console.log("Current scene time:", player.scene.time.now);
+    if (DEBUG) {
+        console.log("Starting weapon:", startingWeapon);
+        console.log("Player current weapon:", player.currentWeapon);
+        console.log("Auto-attack enabled:", player.autoAttackEnabled);
+        console.log("Weapon sprite created:", player.weaponSprite);
+        console.log("Player lastAttackTime:", player.lastAttackTime);
+        console.log("Current scene time:", player.scene.time.now);
+    }
 
     this.input.on('pointerdown', function(pointer) {
         if (!player || !player.isAlive || !player.currentWeapon) return;
@@ -2350,7 +2363,7 @@ function create() {
         const worldX = pointer.worldX;
         const worldY = pointer.worldY;
         
-        const attackRange = 150;
+    const attackRange = player.currentWeapon && player.currentWeapon.attackRange ? player.currentWeapon.attackRange : 150;
         const distance = Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, worldX, worldY);
         
         if (distance <= attackRange) {
@@ -2372,7 +2385,7 @@ function create() {
                         damage = Math.floor(damage * (player.critDamage / 100));
                     }
                     
-                    console.log(`💥 CLICK ATTACK! Hit ${enemy.type} for ${damage} damage`);
+                    if (DEBUG) console.log(`💥 CLICK ATTACK! Hit ${enemy.enemyType} for ${damage} damage`);
                     enemy.takeDamage(damage);
                     player.showFloatingDamage(enemy, damage);
                     player.showAttackEffect(enemy);
@@ -2386,7 +2399,7 @@ function create() {
         }
     });
     
-    console.log("✋ Click to attack enabled! Click near enemies to attack them.");
+    if (DEBUG) console.log("✋ Click to attack enabled! Click near enemies to attack them.");
     
     generateInitialChunks.call(this);
     spawnEnemies.call(this);
@@ -2475,11 +2488,11 @@ function checkEntityCollisions() {
                 player.collisionCooldowns.set(enemyId, currentTime);
                 player.sprite.setTint(0xff0000);
                 enemy.sprite.setTint(0xffaaaa);
-                setTimeout(() => {
+                this.time.delayedCall(200, () => {
                     if (enemy && enemy.isAlive && enemy.sprite) {
                         enemy.sprite.setTint(0xff6666);
                     }
-                }, 200);
+                });
             }
         }
     });
