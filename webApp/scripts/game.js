@@ -890,7 +890,7 @@ class Player extends Entity {
         this.inventory = [];
         this.maxInventorySize = 10;
         this.weapons = [];
-        this.maxWeapons = 5;
+        this.maxWeapons = 6;
         this.autoAttackEnabled = true;
         this.lastAttackTime = -5000;
         this.currentWeapon = null;
@@ -901,7 +901,7 @@ class Player extends Entity {
         this.sprite.play('idle');
         this.createUI();
         this.scene.time.delayedCall(50, () => {
-            if (this.levelText && this.killCountText && this.difficultyText) {
+            if (this.levelText && this.killCountText) {
                 this.updateUI();
             }
         });
@@ -925,31 +925,20 @@ class Player extends Entity {
         });
         this.killCountText = this.scene.add.text(16, 110, `Kills: ${this.killCount}`, {
             fontSize: '18px',
-            fill: '#ffffff',
+            fill: '#00ff00',
             stroke: '#000000',
             strokeThickness: 2,
             fontFamily: '"Inter", "Roboto", sans-serif'
         });
-        this.difficultyText = this.scene.add.text(16, 135, `Difficulty: 1`, {
-            fontSize: '18px',
-            fill: '#ff4444',
-            stroke: '#000000',
-            strokeThickness: 2,
-            fontFamily: '"Inter", "Roboto", sans-serif'
-        });
-        this.weaponText = this.scene.add.text(16, 160, `Weapon: None`, {
-            fontSize: '18px',
-            fill: '#FFD700',
-            stroke: '#000000',
-            strokeThickness: 2,
-            fontFamily: '"Inter", "Roboto", sans-serif'
-        });
-        this.weaponText.setScrollFactor(0);
-        this.weaponText.setDepth(1000);
+        this.killCountText.setScrollFactor(0);
+        this.killCountText.setDepth(1000);
+
+        this.createInventoryUI();
+
         this.levelText.setScrollFactor(0);
         this.levelText.setDepth(1000);
         this.scene.gameTimer = 0;
-        this.timerText = this.scene.add.text(16, 110, `Time: 0s`, {
+        this.timerText = this.scene.add.text(16, 175, `Time: 0s`, {
             fontSize: '16px',
             fill: '#ffffff',
             stroke: '#000000',
@@ -985,6 +974,62 @@ class Player extends Entity {
             loop: true
         });
     }
+
+    createInventoryUI() {
+        this.inventorySlots = [];
+        this.inventoryBgs = [];
+        
+        const startX = 16;
+        const startY = 135;
+        const slotSize = 32;
+        const slotSpacing = 36;
+        
+        for (let i = 0; i < this.maxWeapons; i++) {
+            const x = startX + (i * slotSpacing);
+            const y = startY;
+            
+            const bg = this.scene.add.rectangle(x + slotSize/2, y + slotSize/2, slotSize, slotSize, 0x444444);
+            bg.setStrokeStyle(2, 0x888888);
+            bg.setScrollFactor(0);
+            bg.setDepth(1000);
+            this.inventoryBgs.push(bg);
+            
+            const slot = this.scene.add.image(x + slotSize/2, y + slotSize/2, '');
+            slot.setDisplaySize(24, 24);
+            slot.setScrollFactor(0);
+            slot.setDepth(1001);
+            slot.setVisible(false);
+            this.inventorySlots.push(slot);
+        }
+        
+        this.updateInventoryUI();
+    }
+
+    updateInventoryUI() {
+        if (!this.inventorySlots) return;
+        
+        for (let i = 0; i < this.maxWeapons; i++) {
+            const slot = this.inventorySlots[i];
+            const bg = this.inventoryBgs[i];
+            
+            if (i < this.weapons.length) {
+                const weapon = this.weapons[i];
+                const isActive = weapon === this.currentWeapon;
+                
+                slot.setTexture(weapon.sprite);
+                slot.setVisible(true);
+                slot.setDisplaySize(24, 24);
+                
+                bg.setFillStyle(isActive ? 0x00AA00 : 0x444444);
+                bg.setStrokeStyle(2, isActive ? 0x00FF00 : 0x888888);
+            } else {
+                slot.setVisible(false);
+                bg.setFillStyle(0x222222);
+                bg.setStrokeStyle(2, 0x444444);
+            }
+        }
+    }
+
     updateHPBar() {
         if (this.hpBarBg && this.hpBarFill && this.sprite) {
             const playerX = this.sprite.x;
@@ -1008,9 +1053,6 @@ class Player extends Entity {
         this.xpText.setText(`XP: ${this.experience}/${this.experienceToNext}`);
         this.levelText.setText(`Level: ${this.level}`);
         this.killCountText.setText(`Kills: ${this.killCount}`);
-        if (this.difficultyText) {
-            this.difficultyText.setText(`Difficulty: ${getDifficultyLevel()}`);
-        }
     }
     gainExperience(amount) {
         this.experience += amount;
@@ -1040,9 +1082,7 @@ class Player extends Entity {
                     speed: this.currentWeapon.speed(),
                     damage: this.currentWeapon.instanceDamage
                 });
-                if (this.weaponText) {
-                    this.weaponText.setText(`Weapon: ${this.currentWeapon.name}`);
-                }
+                this.updateInventoryUI();
             }
             this.applyWeaponEffects(weaponInstance);
         } else {
@@ -2273,6 +2313,24 @@ function create() {
         S: Phaser.Input.Keyboard.KeyCodes.S,
         D: Phaser.Input.Keyboard.KeyCodes.D
     });
+
+    const weaponKeys = this.input.keyboard.addKeys('ONE,TWO,THREE,FOUR,FIVE,SIX');
+    this.input.keyboard.on('keydown', (event) => {
+        if (!player || !player.isAlive) return;
+        
+        const keyPressed = event.key;
+        const weaponIndex = parseInt(keyPressed) - 1;
+        
+        if (weaponIndex >= 0 && weaponIndex < player.weapons.length && weaponIndex < player.maxWeapons) {
+            const selectedWeapon = player.weapons[weaponIndex];
+            if (selectedWeapon && selectedWeapon !== player.currentWeapon) {
+                player.currentWeapon = selectedWeapon;
+                player.updateInventoryUI();
+                console.log(`🔄 Switched to weapon: ${selectedWeapon.name}`);
+            }
+        }
+    });
+    
     camera = this.cameras.main;
     camera.startFollow(player.sprite);
     camera.setLerp(0.05, 0.05);
@@ -2285,6 +2343,51 @@ function create() {
     console.log("Weapon sprite created:", player.weaponSprite);
     console.log("Player lastAttackTime:", player.lastAttackTime);
     console.log("Current scene time:", player.scene.time.now);
+
+    this.input.on('pointerdown', function(pointer) {
+        if (!player || !player.isAlive || !player.currentWeapon) return;
+        
+        const worldX = pointer.worldX;
+        const worldY = pointer.worldY;
+        
+        const attackRange = 150;
+        const distance = Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, worldX, worldY);
+        
+        if (distance <= attackRange) {
+            const angle = Phaser.Math.Angle.Between(player.sprite.x, player.sprite.y, worldX, worldY);
+            let hitSomething = false;
+            
+            enemies.forEach(enemy => {
+                const enemyDistance = Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, enemy.sprite.x, enemy.sprite.y);
+                const enemyAngle = Phaser.Math.Angle.Between(player.sprite.x, player.sprite.y, enemy.sprite.x, enemy.sprite.y);
+                const angleDiff = Math.abs(Phaser.Math.Angle.ShortestBetween(angle, enemyAngle));
+                
+                if (enemyDistance <= attackRange && angleDiff <= Math.PI / 4) {
+                    let damage = player.currentWeapon.instanceDamage || 
+                                (typeof player.currentWeapon.damage === 'function' ? player.currentWeapon.damage() : player.currentWeapon.damage);
+                    damage += player.baseDamage;
+                    
+                    const critRoll = Math.random() * 100;
+                    if (critRoll < player.critChance) {
+                        damage = Math.floor(damage * (player.critDamage / 100));
+                    }
+                    
+                    console.log(`💥 CLICK ATTACK! Hit ${enemy.type} for ${damage} damage`);
+                    enemy.takeDamage(damage);
+                    player.showFloatingDamage(enemy, damage);
+                    player.showAttackEffect(enemy);
+                    hitSomething = true;
+                }
+            });
+            
+            if (hitSomething && player.currentWeapon) {
+                player.createWeaponAttack(angle);
+            }
+        }
+    });
+    
+    console.log("✋ Click to attack enabled! Click near enemies to attack them.");
+    
     generateInitialChunks.call(this);
     spawnEnemies.call(this);
     startDifficultyProgression.call(this);
@@ -2560,7 +2663,11 @@ function generateGrassVariant(x, y) {
         return 6;
     }
 }
+
+
 const game = new Phaser.Game(config);
 window.addEventListener('resize', () => {
     game.scale.resize(window.innerWidth, window.innerHeight - 50);
 });
+
+
