@@ -378,7 +378,9 @@ const WEAPON_TYPES = {
         rarity: 'rare',
         description: 'Enchanted blade that strikes with magical force',
         attackRange: 80,
-        attackSpeed: 1000,
+        attackSpeed: 1600,
+        swingDuration: 1000,
+        restAfterSwing: 1000,
         damage: () => Math.floor(15 + Math.random() * 10),
         speed: () => 1.2,
         range: () => 80,
@@ -399,7 +401,9 @@ const WEAPON_TYPES = {
         rarity: 'common',
         description: 'Reliable steel blade for close combat',
         attackRange: 75,
-        attackSpeed: 1200,
+        attackSpeed: 1800,
+        swingDuration: 1200,
+        restAfterSwing: 1000,
         damage: () => Math.floor(12 + Math.random() * 8),
         speed: () => 0.8,
         range: () => 75,
@@ -723,12 +727,12 @@ class Projectile {
         });
     }
     showHitEffect(enemy) {
-        const effect = this.scene.add.sprite(enemy.sprite.x, enemy.sprite.y, this.weapon.attackEffect);
-        effect.setDepth(1500);
-        effect.setScale(1.5);
-        effect.play(this.weapon.attackEffect + '_anim');
-        effect.on('animationcomplete', () => {
-            effect.destroy();
+        // Remove sparkly hit effect; use a subtle white tint flash instead
+        const s = enemy.sprite;
+        if (!s || !s.setTintFill) return;
+        s.setTintFill(0xffffff);
+        this.scene.time.delayedCall(80, () => {
+            if (s && s.clearTint) s.clearTint();
         });
     }
     explode() {
@@ -737,14 +741,18 @@ class Projectile {
             this.fireballTimer.destroy();
         }
         if (this.sprite) {
-            const explosion = this.scene.add.sprite(this.sprite.x, this.sprite.y, this.weapon.attackEffect);
-            explosion.setDepth(1500);
-            explosion.setScale(2);
-            explosion.play(this.weapon.attackEffect + '_anim');
-            explosion.on('animationcomplete', () => {
-                explosion.destroy();
+            // Remove sparkly explosion effect; just fade the projectile out quickly
+            const proj = this.sprite;
+            this.scene.tweens.add({
+                targets: proj,
+                alpha: 0,
+                scaleX: proj.scaleX * 0.9,
+                scaleY: proj.scaleY * 0.9,
+                duration: 120,
+                onComplete: () => {
+                    if (proj && proj.destroy) proj.destroy();
+                }
             });
-            this.sprite.destroy();
             this.sprite = null;
         }
     }
@@ -801,12 +809,23 @@ class WeaponEntity extends Entity {
         this.player = player;
         this.weaponData = weaponData;
         this.attackAngle = attackAngle;
-        this.attackDuration = 600;
+    // Length of the swing; if weapon defines a swingDuration use it, else default slower than before
+    this.attackDuration = (weaponData && weaponData.swingDuration) ? weaponData.swingDuration : 900;
         this.createdTime = scene.time.now;
+        // Orbit parameters: radius around player and current orbital angle
+        this.orbitRadius = (weaponData && weaponData.attackRange ? weaponData.attackRange : 80) * 1.0;
+        // Define the orbital sweep from bottom -> top relative to the attack direction
+        this.startOrbitAngle = this.attackAngle - Math.PI / 2; // bottom
+        this.endOrbitAngle = this.attackAngle + Math.PI / 2;   // top
+        this.currentOrbitAngle = this.startOrbitAngle;
+
         this.positionWeapon();
+        // Pivot near the handle for a more natural swing
+        this.sprite.setOrigin(0.15, 0.5);
         this.sprite.setScale(3.0);
         this.sprite.setDepth(50);
         this.sprite.setTint(0xFFD700);
+        this.sprite.setAlpha(0); // fade-in for smoother appearance
         if (this.shadow) {
             this.shadow.destroy();
             this.shadow = null;
@@ -815,52 +834,76 @@ class WeaponEntity extends Entity {
         if (DEBUG) console.log("🗡️ WeaponEntity created:", weaponData.name, "at angle:", attackAngle);
     }
     positionWeapon() {
-        const distance = 50;
-        const x = this.player.sprite.x + Math.cos(this.attackAngle) * distance;
-        const y = this.player.sprite.y + Math.sin(this.attackAngle) * distance;
+        // Bind position to player's current position, orbiting around the player
+        const px = this.player.sprite.x;
+        const py = this.player.sprite.y;
+        const x = px + Math.cos(this.currentOrbitAngle) * this.orbitRadius;
+        const y = py + Math.sin(this.currentOrbitAngle) * this.orbitRadius;
         this.sprite.x = x;
         this.sprite.y = y;
-        this.sprite.setRotation(this.attackAngle);
+        // Orient the sword along the tangent of the orbit (no spinning in place)
+        // Tangent at angle theta is theta + PI/2
+        this.sprite.setRotation(this.currentOrbitAngle + Math.PI / 2);
     }
     performAttackAnimation() {
-        const startAngle = this.attackAngle - Math.PI / 2;
-        const endAngle = this.attackAngle + Math.PI / 2;
-        this.sprite.setRotation(startAngle);
+        // Fade in quickly for smooth appearance
         this.scene.tweens.add({
             targets: this.sprite,
-            rotation: endAngle,
-            scaleX: 4.0,
-            scaleY: 4.0,
+            alpha: 1,
+            duration: 150,
+            ease: 'Sine.easeOut'
+        });
+        // Tween the orbital angle from bottom -> top while following the player
+        const orbitObj = { angle: this.startOrbitAngle };
+        this.orbitTween = this.scene.tweens.add({
+            targets: orbitObj,
+            angle: this.endOrbitAngle,
             duration: this.attackDuration,
-            ease: 'Power2',
+            ease: 'Sine.easeInOut',
+            onUpdate: () => {
+                this.currentOrbitAngle = orbitObj.angle;
+                // Re-position each tween step to keep perfectly bound to the player
+                this.positionWeapon();
+            },
             onComplete: () => {
                 if (DEBUG) console.log("✅ WeaponEntity attack animation completed");
-                this.destroy();
+                // Soft fade-out before destroying for smoother end
+                this.scene.tweens.add({
+                    targets: this.sprite,
+                    alpha: 0,
+                    duration: 180,
+                    ease: 'Sine.easeIn',
+                    onComplete: () => this.destroy()
+                });
             }
         });
-        this.createSlashEffect();
+        // Removed traveling yellow slash effect per feedback
     }
     createSlashEffect() {
         const slashEffect = this.scene.add.graphics();
         slashEffect.lineStyle(12, 0xFFD700, 1);
         slashEffect.setDepth(100);
-        const radius = 80;
-        const startAngle = this.attackAngle - Math.PI / 2;
-        const endAngle = this.attackAngle + Math.PI / 2;
+        const radius = this.orbitRadius;
+        const startAngle = this.startOrbitAngle;
+        const endAngle = this.endOrbitAngle;
         slashEffect.beginPath();
         slashEffect.arc(this.player.sprite.x, this.player.sprite.y, radius, startAngle, endAngle);
         slashEffect.strokePath();
+        // Smooth glow-in followed by a gentle fade to create a trail feeling
+        this.scene.tweens.add({ targets: slashEffect, alpha: 0.85, duration: 120, ease: 'Sine.easeOut' });
         this.scene.tweens.add({
             targets: slashEffect,
             alpha: 0,
-            scaleX: 1.5,
-            scaleY: 1.5,
-            duration: 400,
+            scaleX: 1.25,
+            scaleY: 1.25,
+            duration: Math.max(650, Math.floor(this.attackDuration * 0.9)),
+            ease: 'Sine.easeIn',
             onComplete: () => slashEffect.destroy()
         });
     }
     update() {
         if (!this.isAlive) return;
+        // Continuously bind to the player's current position while orbiting
         this.positionWeapon();
         if (this.scene.time.now - this.createdTime > this.attackDuration) {
             this.destroy();
@@ -868,6 +911,14 @@ class WeaponEntity extends Entity {
     }
     destroy() {
         if (DEBUG) console.log("🗡️ WeaponEntity destroyed");
+        if (this.orbitTween) {
+            this.orbitTween.remove();
+            this.orbitTween = null;
+        }
+        // Clear player's active melee reference if this was the active one
+        if (this.player && this.player.activeMeleeAttack === this) {
+            this.player.activeMeleeAttack = null;
+        }
         super.destroy();
     }
 }
@@ -901,6 +952,10 @@ class Player extends Entity {
         this.currentWeapon = null;
         this.attackTarget = null;
         this.lastFacingAngle = 0;
+    // Track a single active melee swing to prevent overlapping swords at low levels
+    this.activeMeleeAttack = null;
+    // Pause flag for level-up / modal overlays
+    this.isUpgradeOpen = false;
         this.collisionCooldowns = new Map();
         this.createAnimations();
         this.sprite.play('idle');
@@ -1158,7 +1213,11 @@ class Player extends Entity {
         this.updateUI();
     }
     showLevelUpSelection() {
+        this.isUpgradeOpen = true;
+        // Pause physics, tweens, and animations so combat stops during upgrade selection
         this.scene.physics.pause();
+        if (this.scene.tweens) this.scene.tweens.pauseAll();
+        if (this.scene.anims) this.scene.anims.pauseAll();
         const screenWidth = this.scene.cameras.main.width;
         const screenHeight = this.scene.cameras.main.height;
         const overlay = this.scene.add.rectangle(
@@ -1271,7 +1330,11 @@ class Player extends Entity {
                             element.destroy();
                         }
                     });
+                    // Resume game systems
+                    if (this.scene.tweens) this.scene.tweens.resumeAll();
+                    if (this.scene.anims) this.scene.anims.resumeAll();
                     this.scene.physics.resume();
+                    this.isUpgradeOpen = false;
                 });
             });
         });
@@ -1448,14 +1511,27 @@ class Player extends Entity {
         return nearestEnemy;
     }
     autoAttack() {
+        // Block attacks when an upgrade modal is open
+        if (this.isUpgradeOpen) {
+            return;
+        }
         if (!this.autoAttackEnabled || !this.currentWeapon) {
             if (DEBUG) console.log("Auto-attack blocked:", { enabled: this.autoAttackEnabled, weapon: !!this.currentWeapon });
             return;
         }
         const currentTime = this.scene.time.now;
-        const baseCooldown = (this.currentWeapon && this.currentWeapon.attackSpeed) ? this.currentWeapon.attackSpeed : 800;
-        // Reduce cooldown by player's attackSpeed bonus (percentage). Clamp to a sensible minimum
-        const attackCooldown = Math.max(200, Math.floor(baseCooldown * 100 / (100 + this.attackSpeed)));
+        // Determine cooldown: for melee, use swing + rest to avoid overlap; for ranged, keep original scaling
+        let attackCooldown;
+        const isMelee = this.currentWeapon && !this.currentWeapon.projectile;
+        if (isMelee) {
+            const swing = (this.currentWeapon.swingDuration) ? this.currentWeapon.swingDuration : 1000;
+            const rest = (this.currentWeapon.restAfterSwing) ? this.currentWeapon.restAfterSwing : 1000;
+            attackCooldown = swing + rest; // e.g., 1000ms swing + 1000ms rest = 2000ms cadence
+        } else {
+            const baseCooldown = (this.currentWeapon && this.currentWeapon.attackSpeed) ? this.currentWeapon.attackSpeed : 800;
+            // Reduce cooldown by player's attackSpeed bonus (percentage). Clamp to a sensible minimum
+            attackCooldown = Math.max(200, Math.floor(baseCooldown * 100 / (100 + this.attackSpeed)));
+        }
         const timeSinceLastAttack = currentTime - this.lastAttackTime;
         if (DEBUG && this.frameCount % 60 === 0) {
             console.log(`🔄 AUTO-ATTACK CHECK - Time since last: ${timeSinceLastAttack}ms / ${attackCooldown}ms needed`);
@@ -1470,6 +1546,11 @@ class Player extends Entity {
             console.log(`🗡️ ⚔️ ATTACK TRIGGERED! ⚔️ Time: ${currentTime}, Last: ${this.lastAttackTime}, Difference: ${timeSinceLastAttack}`);
             console.log(`🎯 Target found: ${target ? 'YES' : 'NO'}`);
         }
+        // Prevent overlapping melee swings: only one sword instance at a time
+        if (isMelee && this.activeMeleeAttack && this.activeMeleeAttack.isAlive) {
+            return;
+        }
+
         this.performContinuousAttack(target);
         this.lastAttackTime = currentTime;
     }
@@ -1498,9 +1579,10 @@ class Player extends Entity {
         }
     }
     showWeaponSwingAtAngle(angle) {
-        if (DEBUG) console.log("🗡️ SHOWING DRAMATIC WEAPON SWING at angle:", angle, "Time:", this.scene.time.now);
+        // Restore simple travel trail (no sparkles): a clean arc that fades out smoothly
+        if (DEBUG) console.log("Swing trail at angle:", angle);
         const slashEffect = this.scene.add.graphics();
-        slashEffect.lineStyle(12, 0xFFD700, 1);
+        slashEffect.lineStyle(10, 0xFFD700, 0.9);
         slashEffect.setDepth(200);
         const radius = this.currentWeapon && this.currentWeapon.attackRange ? this.currentWeapon.attackRange : 80;
         const arcStartAngle = angle - Math.PI / 2;
@@ -1511,12 +1593,10 @@ class Player extends Entity {
         this.scene.tweens.add({
             targets: slashEffect,
             alpha: 0,
-            scaleX: 1.5,
-            scaleY: 1.5,
-            duration: 400,
+            duration: 420,
+            ease: 'Sine.easeOut',
             onComplete: () => slashEffect.destroy()
         });
-        if (DEBUG) console.log("✨ Slash effect created - WeaponEntity handles the actual weapon display");
     }
     createWeaponAttack(angle) {
         if (!this.currentWeapon) {
@@ -1524,7 +1604,14 @@ class Player extends Entity {
             return;
         }
         if (DEBUG) console.log("🗡️ Creating WeaponEntity attack at angle:", angle);
+        // For melee, ensure only a single active instance is present
+        if (this.currentWeapon && !this.currentWeapon.projectile) {
+            if (this.activeMeleeAttack && this.activeMeleeAttack.isAlive) return;
+        }
         const weaponEntity = new WeaponEntity(this.scene, this, this.currentWeapon, angle);
+        if (this.currentWeapon && !this.currentWeapon.projectile) {
+            this.activeMeleeAttack = weaponEntity;
+        }
     }
     createAttackHitbox(angle) {
     if (DEBUG) console.log("Creating attack hitbox at angle:", angle);
