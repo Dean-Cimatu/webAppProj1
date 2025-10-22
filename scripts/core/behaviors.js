@@ -1,4 +1,4 @@
-import { BurnZone, FollowZone, LightningStrike } from './zones.js';
+import { BurnZone, FollowZone, LightningStrike, LightningFallStrike, OrbitingBlade } from './zones.js';
 
 // Helper: damage enemies in a line segment from (x,y) in angle dir with length L and width W
 function lineDamage(scene, player, enemies, x, y, angle, length, width, damage, damageType) {
@@ -17,7 +17,7 @@ function lineDamage(scene, player, enemies, x, y, angle, length, width, damage, 
     const px = x + dx * length * t, py = y + dy * length * t;
     const dist = Phaser.Math.Distance.Between(e.sprite.x, e.sprite.y, px, py);
     if (dist <= width * 0.6) {
-      e.takeDamage(damage);
+      e.takeDamage(damage, damageType);
       if (damageType && e.applyDebuff) e.applyDebuff(damageType, 1 + (player?.debuffPower || 0));
     }
   });
@@ -36,7 +36,7 @@ function coneDamage(scene, player, enemies, x, y, angle, radius, arcRadians, dam
     const dist = Phaser.Math.Distance.Between(x, y, e.sprite.x, e.sprite.y);
     const inArc = Phaser.Math.Angle.ShortestBetween(Phaser.Math.RadToDeg(angle), Phaser.Math.RadToDeg(ang));
     if (Math.abs(inArc) <= Phaser.Math.RadToDeg(arcRadians/2) && dist <= radius) {
-      e.takeDamage(damage);
+      e.takeDamage(damage, damageType);
       if (damageType && e.applyDebuff) e.applyDebuff(damageType, 1 + (player?.debuffPower || 0));
     }
   });
@@ -67,27 +67,31 @@ export function executeWeaponAttack(scene, player, weapon, target, enemies, proj
       }
       return true;
     }
-    case 'weapon_claymore': { // spin around
-      const spin = scene.add.graphics();
-      spin.lineStyle(12, 0xffd700, 0.4);
-      spin.strokeCircle(px, py, (weapon.attackRange||100));
-      scene.tweens.add({ targets: spin, alpha: 0, duration: 220, onComplete: () => spin.destroy() });
-      enemies.forEach(e => {
-        const dist = Phaser.Math.Distance.Between(px, py, e.sprite.x, e.sprite.y);
-        if (dist <= (weapon.attackRange||100)) e.takeDamage(damage + player.baseDamage);
+    case 'weapon_claymore': { // persistent orbiting blades
+      const lvl = weapon.level || (player.weaponLevels?.[weapon.id] || 1);
+      const desiredCount = 1 + Math.floor((lvl - 1) / 2); // +1 blade every 2 levels
+      player._claymoreBlades = (player._claymoreBlades || []).filter(b => b && b.isAlive);
+      const radius = weapon.attackRange || 100;
+      const speed = 2.0; // radians per second
+      const bladeDamage = (damage + player.baseDamage);
+      // Update existing blades' parameters
+      player._claymoreBlades.forEach((b, i) => {
+        b.radius = radius;
+        b.speed = speed;
+        b.damage = bladeDamage;
       });
-      if (weapon.maxMode) {
-        // Giant sword falls from the sky at target
-        const tx = target ? target.sprite.x : (px + Math.cos(angle)*120);
-        const ty = target ? target.sprite.y : (py + Math.sin(angle)*120);
-        const strike = scene.add.sprite(tx, ty - 200, 'weapon_longsword');
-        strike.setRotation(Math.PI/2);
-        scene.tweens.add({ targets: strike, y: ty, duration: 180, ease: 'Sine.easeIn', onComplete: () => {
-          const boom = scene.add.graphics(); boom.fillStyle(0xffffff, 0.2); boom.fillCircle(tx, ty, 80);
-          enemies.forEach(e => { if (Phaser.Math.Distance.Between(tx, ty, e.sprite.x, e.sprite.y) <= 80) e.takeDamage(Math.floor((damage+player.baseDamage)*1.5)); });
-          scene.tweens.add({ targets: boom, alpha: 0, duration: 250, onComplete: () => boom.destroy() });
-          strike.destroy();
-        }});
+      // Create additional blades if needed
+      const current = player._claymoreBlades.length;
+      for (let i = current; i < desiredCount; i++) {
+        const phase = (Math.PI * 2) * (i / desiredCount);
+        const blade = new OrbitingBlade(scene, player, radius, speed, phase, bladeDamage, weapon.damageType);
+        zones.push(blade);
+        player._claymoreBlades.push(blade);
+      }
+      // If too many (shouldn't usually happen), remove extras
+      if (player._claymoreBlades.length > desiredCount) {
+        const extras = player._claymoreBlades.splice(desiredCount);
+        extras.forEach(b => b.destroy());
       }
       return true;
     }
@@ -101,7 +105,7 @@ export function executeWeaponAttack(scene, player, weapon, target, enemies, proj
           const push = weapon.maxMode ? 120 : 60;
           e.sprite.x += Math.cos(ang) * push;
           e.sprite.y += Math.sin(ang) * push;
-          e.takeDamage(Math.floor((damage+player.baseDamage)*0.6));
+          e.takeDamage(Math.floor((damage+player.baseDamage)*0.6), weapon.damageType);
         }
       });
       // Max: brief impervious window to attacks
@@ -131,7 +135,7 @@ export function executeWeaponAttack(scene, player, weapon, target, enemies, proj
             const d = Phaser.Math.Distance.Between(this.sprite.x, this.sprite.y, e.sprite.x, e.sprite.y);
             if (d < 30) {
               const hit = Math.min(this.remainingDamage, Math.floor((damage+player.baseDamage)*0.8));
-              e.takeDamage(hit);
+              e.takeDamage(hit, weapon.damageType);
               this.remainingDamage -= hit;
               if (this.remainingDamage <= 0) this.destroy();
             }
@@ -144,7 +148,7 @@ export function executeWeaponAttack(scene, player, weapon, target, enemies, proj
       if (weapon.maxMode) {
         // spin around player minor aoe
         const spin = scene.add.graphics(); spin.lineStyle(8, 0xffffff, 0.3); spin.strokeCircle(px, py, 90);
-        enemies.forEach(e => { if (Phaser.Math.Distance.Between(px, py, e.sprite.x, e.sprite.y) <= 90) e.takeDamage(Math.floor((damage+player.baseDamage)*0.5)); });
+  enemies.forEach(e => { if (Phaser.Math.Distance.Between(px, py, e.sprite.x, e.sprite.y) <= 90) e.takeDamage(Math.floor((damage+player.baseDamage)*0.5), weapon.damageType); });
         scene.tweens.add({ targets: spin, alpha: 0, duration: 200, onComplete: () => spin.destroy() });
       }
       return true;
@@ -170,11 +174,13 @@ export function executeWeaponAttack(scene, player, weapon, target, enemies, proj
       return false;
     }
     case 'weapon_staff': {
-      const tx = target ? target.sprite.x : (px + Math.cos(angle)*100);
-      const ty = target ? target.sprite.y : (py + Math.sin(angle)*100);
-      zones.push(new LightningStrike(scene, tx, ty, 70, damage + player.baseDamage));
+      const tx = target ? target.sprite.x : (px + Math.cos(angle)*120);
+      const ty = target ? target.sprite.y : (py + Math.sin(angle)*120);
+      // Primary strike: fall from sky then explode
+      zones.push(new LightningFallStrike(scene, tx, ty, 70, damage + player.baseDamage, 1 + (player?.debuffPower || 0)));
       if (weapon.maxMode) {
-        zones.push(new LightningStrike(scene, px, py, 90, Math.floor((damage+player.baseDamage)*1.2)));
+        // Max: also center a strike on the player
+        zones.push(new LightningFallStrike(scene, px, py, 90, Math.floor((damage+player.baseDamage)*1.2), 1 + (player?.debuffPower || 0)));
         // Apply a short self-buff: small attack speed and defense boost for a few seconds
         player._staffBuffs = player._staffBuffs || 0;
         if (player._staffBuffs === 0) {
@@ -206,7 +212,8 @@ export function executeWeaponAttack(scene, player, weapon, target, enemies, proj
       const radius = (weapon.attackRange||80) * (weapon.maxMode ? 2 : 1);
       const dps = Math.max(1, Math.floor((damage+player.baseDamage)*0.2));
       const options = weapon.maxMode ? { pushIntervalMs: 2000, pushForce: 160 } : {};
-      zones.push(new FollowZone(scene, player, radius, dps, 2500, 0xffff66, options));
+      // Use orange tint for clear zone indication
+      zones.push(new FollowZone(scene, player, radius, dps, 2500, 0xffa500, options));
       return true;
     }
     case 'weapon_claws': {

@@ -190,14 +190,14 @@ class Projectile {
                 );
                 if (distance < 25) {
                     this.hitTargets.add(enemy.id);
-                    enemy.takeDamage(this.damage);
+                    enemy.takeDamage(this.damage, this.weapon?.damageType);
                     // Rose max: poison AOE around hit target
                     if (this.weapon && this.weapon.special === 'rose_poison_aoe') {
                         enemies.forEach(e => {
                             if (!e.isAlive) return;
                             const d = Phaser.Math.Distance.Between(enemy.sprite.x, enemy.sprite.y, e.sprite.x, e.sprite.y);
                             if (d <= 70) {
-                                e.takeDamage(Math.floor(this.damage * 0.5));
+                                e.takeDamage(Math.floor(this.damage * 0.5), DAMAGE_TYPES.POISON);
                                 if (e.applyDebuff) e.applyDebuff(DAMAGE_TYPES.POISON, 1 + (player?.debuffPower || 0));
                             }
                         });
@@ -450,13 +450,11 @@ class Player extends Entity {
         this.baseDamage = 10;
         this.defense = 0;
         this.critChance = 5;
-        this.critDamage = 150;
-        this.dodgeChance = 0;
+    this.critDamage = 150;
         this.regeneration = 0;
     this.attackSpeed = 100;
     // Size scaling for weapons/projectiles via item buffs
     this.weaponSizeScale = 1.0;
-        this.slowResistance = 0;
     this.debuffPower = 0; // boosts strength/duration of applied debuffs
         this.inventory = [];
         this.maxInventorySize = 10;
@@ -797,6 +795,34 @@ class Player extends Entity {
                 weaponInstance.spreadAngleDeg = Math.max(weaponInstance.spreadAngleDeg || 0, 20);
                 weaponInstance.maxMode = true;
                 break;
+            case 'center_strike':
+                // Staff: enable centered strike behavior at max
+                weaponInstance.maxMode = true;
+                break;
+            case 'split_rocks':
+                weaponInstance.maxMode = true;
+                break;
+            case 'huge_burn':
+                weaponInstance.maxMode = true;
+                break;
+            case 'poison_aoe':
+                weaponInstance.maxMode = true;
+                break;
+            case 'double_zone':
+                weaponInstance.maxMode = true;
+                break;
+            case 'top_bottom_aoe':
+                weaponInstance.maxMode = true;
+                break;
+            case 'spin_orbit':
+                weaponInstance.maxMode = true;
+                break;
+            case 'cone_whip':
+                weaponInstance.maxMode = true;
+                break;
+            case 'impervious':
+                weaponInstance.maxMode = true;
+                break;
         }
     }
     applyWeaponEffects(weapon) {
@@ -838,17 +864,11 @@ class Player extends Entity {
             case 'critDamage':
                 this.critDamage += value;
                 break;
-            case 'dodgeChance':
-                this.dodgeChance += value;
-                break;
             case 'regeneration':
                 this.regeneration += value;
                 break;
             case 'attackSpeed':
                 this.attackSpeed += value;
-                break;
-            case 'slowResistance':
-                this.slowResistance += value;
                 break;
             case 'debuffPower':
                 this.debuffPower += value;
@@ -1162,10 +1182,8 @@ class Player extends Entity {
                                 case 'defense': effectDescriptions.push(`${sign}${value} Defense`); break;
                                 case 'critChance': effectDescriptions.push(`${sign}${value}% Crit Chance`); break;
                                 case 'critDamage': effectDescriptions.push(`${sign}${value}% Crit Damage`); break;
-                                case 'dodgeChance': effectDescriptions.push(`${sign}${value}% Dodge Chance`); break;
                                 case 'regeneration': effectDescriptions.push(`${sign}${value} HP/sec Regen`); break;
                                 case 'attackSpeed': effectDescriptions.push(`${sign}${value}% Attack Speed`); break;
-                                case 'slowResistance': effectDescriptions.push(`${sign}${value}% Slow Resist`); break;
                             }
                         }
                     }
@@ -1247,17 +1265,11 @@ class Player extends Entity {
                 case 'critDamage':
                     this.critDamage += value;
                     break;
-                case 'dodgeChance':
-                    this.dodgeChance += value;
-                    break;
                 case 'regeneration':
                     this.regeneration += value;
                     break;
                 case 'attackSpeed':
                     this.attackSpeed += value;
-                    break;
-                case 'slowResistance':
-                    this.slowResistance += value;
                     break;
                 case 'weaponSize':
                     this.weaponSizeScale *= (1 + value);
@@ -1475,8 +1487,7 @@ class Player extends Entity {
                     if (critRoll < this.critChance) {
                         damage = Math.floor(damage * (this.critDamage / 100));
                     }
-                    
-                    enemy.takeDamage(damage);
+                    enemy.takeDamage(damage, w?.damageType);
                     // Apply debuff based on weapon damage type
                     if (w && w.damageType && enemy.applyDebuff) {
                         enemy.applyDebuff(w.damageType, 1 + (this.debuffPower || 0));
@@ -1556,7 +1567,7 @@ class Player extends Entity {
             slashEffect.arc(this.sprite.x, this.sprite.y, slashLength, startAngle, endAngle);
             slashEffect.strokePath();
         }
-        target.takeDamage(damage);
+        target.takeDamage(damage, weapon?.damageType);
         if (weapon && weapon.damageType && target.applyDebuff) {
             target.applyDebuff(weapon.damageType, 1 + (this.debuffPower || 0));
         }
@@ -1661,7 +1672,7 @@ class Player extends Entity {
                 if (Math.random() < 0.25) {
                     this.scene.time.delayedCall(200, () => {
                         if (target.isAlive) {
-                            target.takeDamage(Math.floor(damage * 0.5));
+                            target.takeDamage(Math.floor(damage * 0.5), DAMAGE_TYPES.PHYSICAL);
                             this.showAttackEffect(target);
                         }
                     });
@@ -1675,7 +1686,7 @@ class Player extends Entity {
                             enemy.sprite.x, enemy.sprite.y
                         );
                         if (distance < 80) {
-                            enemy.takeDamage(Math.floor(damage * 0.4));
+                            enemy.takeDamage(Math.floor(damage * 0.4), DAMAGE_TYPES.PHYSICAL);
                             this.showAttackEffect(enemy);
                         }
                     }
@@ -1726,7 +1737,7 @@ class Player extends Entity {
             if (nearestEnemy) {
                 this.createLightningEffect(currentTarget, nearestEnemy);
                 const chainDamage = Math.floor(baseDamage * (0.6 - chainCount * 0.1));
-                nearestEnemy.takeDamage(chainDamage);
+                nearestEnemy.takeDamage(chainDamage, DAMAGE_TYPES.LIGHTNING);
                 currentTarget = nearestEnemy;
                 chainCount++;
                 this.scene.time.delayedCall(150, chainNext);
@@ -1971,11 +1982,18 @@ class Enemy extends Entity {
         const sizeSpeedModifier = Math.max(0.5, 1 - (enemyData.size - 24) / 200);
         const randomSpeedVariation = 0.8 + Math.random() * 0.4;
         const speedDifficultyBonus = 1 + ((difficulty - 1) * 0.05);
-        this.speed = (enemyData.baseSpeed * sizeSpeedModifier * randomSpeedVariation * speedDifficultyBonus) + globalEnemySpeedBonus;
+        // Apply a global 30% speed reduction as requested
+        this.speed = ((enemyData.baseSpeed * sizeSpeedModifier * randomSpeedVariation * speedDifficultyBonus) + globalEnemySpeedBonus) * 0.7;
         this.health = Math.floor(enemyData.health * difficultyMultiplier);
         this.maxHealth = this.health;
         this.damage = Math.floor(enemyData.damage * difficultyMultiplier);
         this.damageTakenMultiplier = 1.0;
+        // Flat resistances per damage type (no immunities). Defaults to 0 for all.
+        this.resistances = { physical: 0, burn: 0, poison: 0, lightning: 0, armor_weaken: 0 };
+        // Allow per-enemy flat resistances to be specified in ENEMY_TYPES[enemyType].resistances
+        if (enemyData.resistances && typeof enemyData.resistances === 'object') {
+            this.resistances = { ...this.resistances, ...enemyData.resistances };
+        }
         this.debuffs = {
             poison: { time: 0, tick: 0.2, acc: 0 },
             burn: { time: 0, tick: 1.0, acc: 0 },
@@ -2158,7 +2176,7 @@ class Enemy extends Entity {
             if (this.debuffs.burn.acc >= this.debuffs.burn.tick) {
                 this.debuffs.burn.acc = 0;
                 const dmg = Math.max(1, Math.floor(3 + currentDifficulty));
-                this.takeDamage(dmg);
+                this.takeDamage(dmg, DAMAGE_TYPES.BURN);
             }
         }
     }
@@ -2178,8 +2196,11 @@ class Enemy extends Entity {
                 break;
         }
     }
-    takeDamage(damage) {
-        const scaled = Math.floor(damage * (this.damageTakenMultiplier || 1.0));
+    takeDamage(damage, damageType) {
+        const mult = (this.damageTakenMultiplier || 1.0);
+        const typeKey = (typeof damageType === 'string') ? damageType.toLowerCase() : null;
+        const flatRes = typeKey && this.resistances ? (this.resistances[typeKey] || 0) : 0;
+        const scaled = Math.max(1, Math.floor(damage * mult) - flatRes);
         this.health -= scaled;
         this.sprite.setTint(0xff0000);
         this.scene.time.delayedCall(100, () => {
@@ -2435,7 +2456,7 @@ function create() {
                     }
                     
                     
-                    enemy.takeDamage(damage);
+                    enemy.takeDamage(damage, player.currentWeapon?.damageType);
                     player.showFloatingDamage(enemy, damage);
                     player.showAttackEffect(enemy);
                     hitSomething = true;
