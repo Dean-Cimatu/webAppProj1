@@ -23,527 +23,441 @@ const config = {
         update: update
     }
 };
+
+// Damage types and simple debuff configs
+const DAMAGE_TYPES = {
+    PHYSICAL: 'physical',
+    POISON: 'poison',
+    BURN: 'burn',
+    LIGHTNING: 'lightning',
+    ARMOR_WEAKEN: 'armor_weaken'
+};
+
+// Simple game state to orchestrate intro/choice/play
+let GAME_STATE = 'intro'; // 'intro' | 'choice' | 'playing'
 const ENEMY_TYPES = {
-    'lereon_knight': {
-        sprite: 'lereon_knight',
-        size: 64,
-        health: 100,
-        damage: 15,
-        baseSpeed: 75
-    },
-    'slime': {
-        sprite: 'slime',
-        size: 32,
-        health: 40,
-        damage: 8,
-        baseSpeed: 90
-    },
-    'bat': {
-        sprite: 'bat',
-        size: 28,
-        health: 30,
-        damage: 6,
-        baseSpeed: 95
-    },
-    'spider': {
-        sprite: 'spider',
-        size: 24,
-        health: 25,
-        damage: 5,
-        baseSpeed: 100
-    },
-    'snake': {
-        sprite: 'snake',
-        size: 40,
-        health: 50,
-        damage: 10,
-        baseSpeed: 85
-    },
-    'wolf': {
-        sprite: 'wolf',
-        size: 48,
-        health: 70,
-        damage: 12,
-        baseSpeed: 80
-    },
-    'worm': {
-        sprite: 'worm',
-        size: 36,
-        health: 45,
-        damage: 7,
-        baseSpeed: 88
-    },
-    'orc': {
-        sprite: 'orc',
-        size: 56,
-        health: 85,
-        damage: 14,
-        baseSpeed: 78
-    },
-    'skeleton_sword': {
-        sprite: 'skeleton_sword',
-        size: 52,
-        health: 75,
-        damage: 13,
-        baseSpeed: 82
-    },
-    'werewolf': {
-        sprite: 'werewolf',
-        size: 60,
-        health: 90,
-        damage: 16,
-        baseSpeed: 76
-    },
-    'burning_demon_imp': {
-        sprite: 'burning_demon_imp',
-        size: 44,
-        health: 60,
-        damage: 11,
-        baseSpeed: 83
-    },
-    'viking_warrior': {
-        sprite: 'viking_warrior',
-        size: 68,
-        health: 110,
-        damage: 18,
-        baseSpeed: 73
-    },
-    'baby_dragon': {
-        sprite: 'baby_dragon',
-        size: 72,
-        health: 120,
-        damage: 20,
-        baseSpeed: 70
-    },
-    'big_skeleton': {
-        sprite: 'big_skeleton',
-        size: 80,
-        health: 150,
-        damage: 25,
-        baseSpeed: 65
-    },
-    'burning_demon': {
-        sprite: 'burning_demon',
-        size: 84,
-        health: 160,
-        damage: 28,
-        baseSpeed: 62
-    },
-    'skeleton_king': {
-        sprite: 'skeleton_king',
-        size: 88,
-        health: 180,
-        damage: 30,
-        baseSpeed: 60
-    },
-    'death_angel': {
-        sprite: 'death_angel',
-        size: 92,
-        health: 200,
-        damage: 35,
-        baseSpeed: 55
-    },
-    'legendary_dragon': {
-        sprite: 'legendary_dragon',
-        size: 120,
-        health: 300,
-        damage: 50,
-        baseSpeed: 45
-    },
+    'slime': { sprite: 'slime', size: 32, health: 40, damage: 8, baseSpeed: 90 },
+    'bat': { sprite: 'bat', size: 28, health: 30, damage: 6, baseSpeed: 95 },
+    'spider': { sprite: 'spider', size: 24, health: 25, damage: 5, baseSpeed: 100 },
+    'snake': { sprite: 'snake', size: 40, health: 50, damage: 10, baseSpeed: 85 },
+    'worm': { sprite: 'worm', size: 36, health: 45, damage: 7, baseSpeed: 88 },
+    'lereon_knight': { sprite: 'lereon_knight', size: 64, health: 100, damage: 15, baseSpeed: 75 },
+    'wolf': { sprite: 'wolf', size: 48, health: 70, damage: 12, baseSpeed: 80 },
+    'skeleton_sword': { sprite: 'skeleton_sword', size: 52, health: 75, damage: 13, baseSpeed: 82 },
+    'orc': { sprite: 'orc', size: 56, health: 85, damage: 14, baseSpeed: 78 },
+    'burning_demon_imp': { sprite: 'burning_demon_imp', size: 44, health: 60, damage: 11, baseSpeed: 83 },
     'skeleton_sword_animated': {
-        sprite: 'skeleton_sword_walk_1',
-        size: 54,
-        health: 80,
-        damage: 14,
-        baseSpeed: 80,
-        animated: true,
-        animations: {
-            walk: 'skeleton_sword_walk',
-            attack: 'skeleton_sword_attack'
-        }
+        sprite: 'skeleton_sword_walk_1', size: 54, health: 80, damage: 14, baseSpeed: 80, animated: true,
+        animations: { walk: 'skeleton_sword_walk', attack: 'skeleton_sword_attack' }
     },
+    'werewolf': { sprite: 'werewolf', size: 60, health: 90, damage: 16, baseSpeed: 76 },
+    'viking_warrior': { sprite: 'viking_warrior', size: 68, health: 110, damage: 18, baseSpeed: 73 },
+    'baby_dragon': { sprite: 'baby_dragon', size: 72, health: 120, damage: 20, baseSpeed: 70 },
+    'big_skeleton': { sprite: 'big_skeleton', size: 80, health: 150, damage: 25, baseSpeed: 65 },
     'demon_axe_red': {
-        sprite: 'demon_axe_walk_1',
-        size: 68,
-        health: 110,
-        damage: 22,
-        baseSpeed: 74,
-        animated: true,
-        animations: {
-            walk: 'demon_axe_walk',
-            attack: 'demon_axe_attack'
-        }
+        sprite: 'demon_axe_walk_1', size: 68, health: 110, damage: 22, baseSpeed: 74, animated: true,
+        animations: { walk: 'demon_axe_walk', attack: 'demon_axe_attack' }
+    },
+    'burning_demon': { sprite: 'burning_demon', size: 84, health: 160, damage: 28, baseSpeed: 62 },
+    'skeleton_king': { sprite: 'skeleton_king', size: 88, health: 180, damage: 30, baseSpeed: 60 },
+    'death_angel': { sprite: 'death_angel', size: 92, health: 200, damage: 35, baseSpeed: 55 },
+    'legendary_dragon': { sprite: 'legendary_dragon', size: 120, health: 300, damage: 50, baseSpeed: 45 }
+};
+// Core weapons available for selection and drops
+const WEAPON_TYPES = {
+    'weapon_longsword': {
+        id: 'weapon_longsword',
+        sprite: 'weapon_longsword',
+        name: 'Longsword',
+        category: 'melee',
+        damageType: DAMAGE_TYPES.PHYSICAL,
+        rarity: 'common',
+        description: 'Reliable close-range blade.',
+        attackRange: 80,
+        swingDuration: 1000,
+        restAfterSwing: 1000,
+        projectile: false,
+        damage: () => 14,
+        speed: () => 1.0,
+        // Max-level behavior hint
+        maxBehavior: 'giant_thrust'
+    },
+    // Whip: simple long-reach melee at base
+    'weapon_whip': {
+        id: 'weapon_whip',
+        sprite: 'weapon_flail', // placeholder sprite
+        name: 'Whip',
+        category: 'melee',
+        damageType: DAMAGE_TYPES.PHYSICAL,
+        rarity: 'uncommon',
+        description: 'Long reach line lash.',
+        attackRange: 130,
+        swingDuration: 900,
+        restAfterSwing: 1000,
+        projectile: false,
+        damage: () => 12,
+        speed: () => 1.0,
+        maxBehavior: 'cone_whip'
+    },
+    // Claymore: heavy blade, base behaves like a broad swing
+    'weapon_claymore': {
+        id: 'weapon_claymore',
+        sprite: 'weapon_longsword', // placeholder sprite
+        name: 'Claymore',
+        category: 'melee',
+        damageType: DAMAGE_TYPES.PHYSICAL,
+        rarity: 'uncommon',
+        description: 'Heavy two-handed blade.',
+        attackRange: 100,
+        swingDuration: 1150,
+        restAfterSwing: 1100,
+        projectile: false,
+        damage: () => 18,
+        speed: () => 0.95,
+        maxBehavior: 'spin_orbit'
+    },
+    // Shield: short-range shove; base does knockback via unique effect
+    'weapon_shield': {
+        id: 'weapon_shield',
+        sprite: 'weapon_shield_icon',
+        name: 'Shield',
+        category: 'melee',
+        damageType: DAMAGE_TYPES.PHYSICAL,
+        rarity: 'uncommon',
+        description: 'Bash enemies back.',
+        attackRange: 70,
+        swingDuration: 800,
+        restAfterSwing: 900,
+        projectile: false,
+        damage: () => 8,
+        speed: () => 1.0,
+        maxBehavior: 'impervious'
+    },
+    // Torch: base simple fireball projectile with burn
+    'weapon_torch': {
+        id: 'weapon_torch',
+        sprite: 'weapon_torch_icon',
+        name: 'Torch',
+        category: 'magic',
+        damageType: DAMAGE_TYPES.BURN,
+        rarity: 'common',
+        description: 'Ignites foes with flames.',
+        attackRange: 220,
+        attackSpeed: 850,
+        projectile: true,
+        projectileSpeed: 360,
+        projectileSprite: 'fireball4',
+        projectileScale: 0.15,
+        damage: () => 9,
+        speed: () => 1.0,
+        maxBehavior: 'huge_burn'
+    },
+    // Stone: tiny fast projectile
+    'weapon_stone': {
+        id: 'weapon_stone',
+        sprite: 'weapon_stone_icon',
+        name: 'Stone',
+        category: 'bow',
+        damageType: DAMAGE_TYPES.PHYSICAL,
+        rarity: 'common',
+        description: 'Pebble toss with high speed.',
+        attackRange: 180,
+        attackSpeed: 350,
+        projectile: true,
+        projectileSpeed: 500,
+        projectileSprite: 'fireball5',
+        damage: () => 5,
+        speed: () => 1.0,
+        maxBehavior: 'split_rocks'
+    },
+    // Staff: simple lightning projectile at base
+    'weapon_staff': {
+        id: 'weapon_staff',
+        sprite: 'magic_wand',
+        name: 'Staff',
+        category: 'magic',
+        damageType: DAMAGE_TYPES.LIGHTNING,
+        rarity: 'rare',
+        description: 'Calls lightning to strike.',
+        attackRange: 240,
+        attackSpeed: 900,
+        projectile: true,
+        projectileSpeed: 360,
+        projectileSprite: 'fireball2',
+        damage: () => 11,
+        speed: () => 1.0,
+        maxBehavior: 'center_strike'
+    },
+    // Rose: poison thorns projectile
+    'weapon_rose': {
+        id: 'weapon_rose',
+        sprite: 'magic_orb', // placeholder sprite
+        name: 'Rose',
+        category: 'magic',
+        damageType: DAMAGE_TYPES.POISON,
+        rarity: 'uncommon',
+        description: 'Thorns that poison.',
+        attackRange: 220,
+        attackSpeed: 900,
+        projectile: true,
+        projectileSpeed: 360,
+        projectileSprite: 'fireball5',
+        damage: () => 8,
+        speed: () => 1.0,
+        maxBehavior: 'poison_aoe'
+    },
+    // Lantern: small zone melee tick around player
+    'weapon_lantern': {
+        id: 'weapon_lantern',
+        sprite: 'lantern',
+        name: 'Lantern',
+        category: 'melee',
+        damageType: DAMAGE_TYPES.BURN,
+        rarity: 'uncommon',
+        description: 'A faint burning aura.',
+        attackRange: 80,
+        swingDuration: 700,
+        restAfterSwing: 800,
+        projectile: false,
+        damage: () => 6,
+        speed: () => 1.0,
+        maxBehavior: 'double_zone'
+    },
+    // Claws: very fast, small arc
+    'weapon_claws': {
+        id: 'weapon_claws',
+        sprite: 'weapon_dagger', // placeholder sprite
+        name: 'Claws',
+        category: 'melee',
+        damageType: DAMAGE_TYPES.PHYSICAL,
+        rarity: 'uncommon',
+        description: 'Rapid slashes.',
+        attackRange: 60,
+        swingDuration: 500,
+        restAfterSwing: 700,
+        projectile: false,
+        damage: () => 9,
+        speed: () => 1.2,
+        maxBehavior: 'top_bottom_aoe'
+    },
+    // Fast, short-range stabber with bonus hit chance (see applyWeaponUniqueEffect)
+    'weapon_dagger': {
+        id: 'weapon_dagger',
+        sprite: 'weapon_dagger',
+        name: 'Swift Dagger',
+        category: 'melee',
+        damageType: DAMAGE_TYPES.PHYSICAL,
+        rarity: 'common',
+        description: 'Fast stabs, sometimes strikes twice.',
+        attackRange: 60,
+        swingDuration: 700,
+        restAfterSwing: 900,
+        projectile: false,
+        damage: () => 10,
+        speed: () => 1.2,
+        maxBehavior: 'rapid_flurry'
+    },
+    // Heavy axe with small splash (see applyWeaponUniqueEffect)
+    'weapon_doubleaxe': {
+        id: 'weapon_doubleaxe',
+        sprite: 'weapon_doubleaxe',
+        name: 'Double Axe',
+        category: 'melee',
+        damageType: DAMAGE_TYPES.PHYSICAL,
+        rarity: 'uncommon',
+        description: 'Heavy swings that cleave nearby foes.',
+        attackRange: 90,
+        swingDuration: 1200,
+        restAfterSwing: 1200,
+        projectile: false,
+        damage: () => 20,
+        speed: () => 0.9,
+        maxBehavior: 'whirlwind'
+    },
+    // Crystal Sword occasionally chains lightning (see applyWeaponUniqueEffect)
+    'weapon_crystalsword': {
+        id: 'weapon_crystalsword',
+        sprite: 'weapon_crystalsword',
+        name: 'Crystal Sword',
+        category: 'melee',
+        damageType: DAMAGE_TYPES.LIGHTNING,
+        rarity: 'rare',
+        description: 'A blade crackling with lightning.',
+        attackRange: 85,
+        swingDuration: 950,
+        restAfterSwing: 950,
+        projectile: false,
+        damage: () => 16,
+        speed: () => 1.0,
+        maxBehavior: 'giant_thrust'
+    },
+    // Long reach thrusts
+    'weapon_spear': {
+        id: 'weapon_spear',
+        sprite: 'weapon_spear',
+        name: 'Spear',
+        category: 'melee',
+        damageType: DAMAGE_TYPES.PHYSICAL,
+        rarity: 'common',
+        description: 'Long reach pierce.',
+        attackRange: 110,
+        swingDuration: 900,
+        restAfterSwing: 1000,
+        projectile: false,
+        damage: () => 14,
+        speed: () => 1.0,
+        maxBehavior: 'impale'
+    },
+    // Spiked ball on a chain
+    'weapon_flail': {
+        id: 'weapon_flail',
+        sprite: 'weapon_flail',
+        name: 'Rusty Flail',
+        category: 'melee',
+        damageType: DAMAGE_TYPES.PHYSICAL,
+        rarity: 'uncommon',
+        description: 'Sweeping arcs with hefty impact.',
+        attackRange: 120,
+        swingDuration: 1300,
+        restAfterSwing: 1100,
+        projectile: false,
+        damage: () => 18,
+        speed: () => 0.9,
+        maxBehavior: 'whirlwind'
+    },
+    'weapon_bow': {
+        id: 'weapon_bow',
+        sprite: 'weapon_bow',
+        name: 'Hunter Bow',
+        category: 'bow',
+        damageType: DAMAGE_TYPES.PHYSICAL,
+        rarity: 'uncommon',
+        description: 'Swift ranged bow.',
+        attackRange: 220,
+        attackSpeed: 900, // used for ranged cadence
+        projectile: true,
+        projectileSpeed: 420,
+    projectileSprite: 'arrow_move',
+        damage: () => 10,
+        speed: () => 1.1,
+        maxBehavior: 'spread_shot'
+    },
+    // Magic projectiles (fire)
+    'magic_wand': {
+        id: 'magic_wand',
+        sprite: 'magic_wand',
+        name: 'Wand',
+        category: 'magic',
+        damageType: DAMAGE_TYPES.BURN,
+        rarity: 'common',
+        description: 'Simple wand that launches firebolts.',
+        attackRange: 260,
+        attackSpeed: 850,
+        projectile: true,
+        projectileSpeed: 380,
+        projectileSprite: 'fireball1',
+        projectileScale: 0.12,
+        damage: () => 9,
+        speed: () => 1.0,
+        maxBehavior: 'inferno_spread'
+    },
+    'magic_crystalwand': {
+        id: 'magic_crystalwand',
+        sprite: 'magic_crystalwand',
+        name: 'Crystal Wand',
+        category: 'magic',
+        damageType: DAMAGE_TYPES.BURN,
+        rarity: 'uncommon',
+        description: 'Empowered firebolts with crystal focus.',
+        attackRange: 270,
+        attackSpeed: 820,
+        projectile: true,
+        projectileSpeed: 400,
+        projectileSprite: 'fireball2',
+        projectileScale: 0.14,
+        damage: () => 11,
+        speed: () => 1.0,
+        maxBehavior: 'inferno_spread'
+    },
+    'magic_spellbook': {
+        id: 'magic_spellbook',
+        sprite: 'magic_spellbook',
+        name: 'Spellbook',
+        category: 'magic',
+        damageType: DAMAGE_TYPES.POISON,
+        rarity: 'rare',
+        description: 'Whispers of toxic incantations.',
+        attackRange: 250,
+        attackSpeed: 900,
+        projectile: true,
+        projectileSpeed: 360,
+        projectileSprite: 'fireball3',
+        projectileScale: 0.13,
+        damage: () => 10,
+        speed: () => 1.0,
+        maxBehavior: 'inferno_spread'
+    },
+    'magic_orb': {
+        id: 'magic_orb',
+        sprite: 'magic_orb',
+        name: 'Orb',
+        category: 'magic',
+        damageType: DAMAGE_TYPES.BURN,
+        rarity: 'uncommon',
+        description: 'A hovering orb that launches fiery motes.',
+        attackRange: 240,
+        attackSpeed: 950,
+        projectile: true,
+        projectileSpeed: 320,
+        projectileSprite: 'fireball3',
+        projectileScale: 0.18,
+        damage: () => 10,
+        speed: () => 1.0,
+        maxBehavior: 'inferno_spread'
+    },
+    'magic_ring': {
+        id: 'magic_ring',
+        sprite: 'magic_ring',
+        name: 'Magic Ring',
+        category: 'magic',
+        damageType: DAMAGE_TYPES.LIGHTNING,
+        rarity: 'epic',
+        description: 'Sparks leap from a charged sigil.',
+        attackRange: 260,
+        attackSpeed: 800,
+        projectile: true,
+        projectileSpeed: 380,
+        projectileSprite: 'fireball4',
+        projectileScale: 0.15,
+        damage: () => 12,
+        speed: () => 1.0,
+        maxBehavior: 'spread_shot'
     }
 };
 const ITEM_TYPES = {
+    // Keep one simple fallback item used elsewhere
     'berry01blue': {
         sprite: 'berry01blue',
         name: 'Frost Berry',
         category: 'berry',
         rarity: 'common',
         description: 'Provides steady health and minor speed',
-        effects: {
-            health: () => Math.floor(20 + Math.random() * 20),
-            speed: () => Math.floor(2 + Math.random() * 4),
-        }
+        effects: { health: () => 20, speed: () => 2 }
     },
-    'berry02yellow': {
-        sprite: 'berry02yellow',
-        name: 'Lightning Berry',
-        category: 'berry',
-        rarity: 'common',
-        description: 'Boosts movement speed significantly',
-        effects: {
-            health: () => Math.floor(8 + Math.random() * 12),
-            speed: () => Math.floor(15 + Math.random() * 10),
-        }
-    },
-    'berry03purple': {
-        sprite: 'berry03purple',
-        name: 'Shadow Berry',
-        category: 'berry',
-        rarity: 'uncommon',
-        description: 'Increases health capacity and provides dodge',
-        effects: {
-            maxHealth: () => Math.floor(15 + Math.random() * 20),
-            health: () => Math.floor(25 + Math.random() * 15),
-            dodgeChance: () => Math.floor(2 + Math.random() * 4),
-        }
-    },
-    'berry04red': {
-        sprite: 'berry04red',
-        name: 'Fire Berry',
-        category: 'berry',
-        rarity: 'uncommon',
-        description: 'Enhances combat power',
-        effects: {
-            health: () => Math.floor(30 + Math.random() * 20),
-            damage: () => Math.floor(4 + Math.random() * 6),
-            critChance: () => Math.floor(1 + Math.random() * 3),
-        }
-    },
-    'gem01orange': {
-        sprite: 'gem01orange',
-        name: 'Amber Gem',
-        category: 'gem',
-        rarity: 'rare',
-        description: 'Balanced enhancement of vitality and agility',
-        effects: {
-            maxHealth: () => Math.floor(20 + Math.random() * 25),
-            speed: () => Math.floor(8 + Math.random() * 12),
-            regeneration: () => Math.floor(1 + Math.random() * 2),
-        }
-    },
-    'gem02blue': {
-        sprite: 'gem02blue',
-        name: 'Sapphire Gem',
-        category: 'gem',
-        rarity: 'rare',
-        description: 'Defensive powerhouse with strong healing',
-        effects: {
-            health: () => Math.floor(60 + Math.random() * 40),
-            defense: () => Math.floor(5 + Math.random() * 8),
-            slowResistance: () => Math.floor(15 + Math.random() * 15),
-        }
-    },
-    'gem03yellow': {
-        sprite: 'gem03yellow',
-        name: 'Citrine Gem',
-        category: 'gem',
-        rarity: 'rare',
-        description: 'Speed and precision focused enhancement',
-        effects: {
-            speed: () => Math.floor(20 + Math.random() * 15),
-            critChance: () => Math.floor(4 + Math.random() * 8),
-            attackSpeed: () => Math.floor(5 + Math.random() * 10),
-        }
-    },
-    'gem04purple': {
-        sprite: 'gem04purple',
-        name: 'Amethyst Gem',
-        category: 'gem',
-        rarity: 'epic',
-        description: 'Mystical gem enhancing life force and power',
-        effects: {
-            maxHealth: () => Math.floor(35 + Math.random() * 30),
-            damage: () => Math.floor(8 + Math.random() * 12),
-            critDamage: () => Math.floor(8 + Math.random() * 12),
-        }
-    },
-    'gem05red': {
-        sprite: 'gem05red',
-        name: 'Ruby Gem',
-        category: 'gem',
-        rarity: 'epic',
-        description: 'Pure offensive power amplification',
-        effects: {
-            damage: () => Math.floor(12 + Math.random() * 16),
-            critDamage: () => Math.floor(15 + Math.random() * 20),
-            critChance: () => Math.floor(3 + Math.random() * 7),
-        }
-    },
-    'gem06green': {
-        sprite: 'gem06green',
-        name: 'Emerald Gem',
-        category: 'gem',
-        rarity: 'legendary',
-        description: 'Ultimate life enhancement artifact',
-        effects: {
-            health: () => Math.floor(100 + Math.random() * 100),
-            maxHealth: () => Math.floor(50 + Math.random() * 50),
-            speed: () => Math.floor(20 + Math.random() * 20),
-            regeneration: () => Math.floor(3 + Math.random() * 5),
-        }
-    },
-    'glass01orange': {
-        sprite: 'glass01orange',
-        name: 'Phoenix Elixir',
-        category: 'elixir',
-        rarity: 'rare',
-        description: 'Resurrection-themed regeneration boost',
-        effects: {
-            health: () => Math.floor(70 + Math.random() * 50),
-            regeneration: () => Math.floor(2 + Math.random() * 4),
-            maxHealth: () => Math.floor(10 + Math.random() * 15),
-        }
-    },
-    'glass02blue': {
-        sprite: 'glass02blue',
-        name: 'Frost Elixir',
-        category: 'elixir',
-        rarity: 'rare',
-        description: 'Ice-cold defensive enhancement',
-        effects: {
-            defense: () => Math.floor(8 + Math.random() * 10),
-            slowResistance: () => Math.floor(25 + Math.random() * 25),
-            health: () => Math.floor(40 + Math.random() * 30),
-        }
-    },
-    'glass03yellow': {
-        sprite: 'glass03yellow',
-        name: 'Lightning Elixir',
-        category: 'elixir',
-        rarity: 'epic',
-        description: 'Electric speed and reflexes amplifier',
-        effects: {
-            speed: () => Math.floor(25 + Math.random() * 25),
-            attackSpeed: () => Math.floor(15 + Math.random() * 20),
-            dodgeChance: () => Math.floor(3 + Math.random() * 7),
-        }
-    },
-    'glass04purple': {
-        sprite: 'glass04purple',
-        name: 'Shadow Elixir',
-        category: 'elixir',
-        rarity: 'epic',
-        description: 'Stealth and assassination mastery',
-        effects: {
-            damage: () => Math.floor(15 + Math.random() * 18),
-            dodgeChance: () => Math.floor(8 + Math.random() * 12),
-            critChance: () => Math.floor(4 + Math.random() * 8),
-        }
-    },
-    'glass05red': {
-        sprite: 'glass05red',
-        name: 'Berserker Elixir',
-        category: 'elixir',
-        rarity: 'legendary',
-        description: 'Ultimate combat enhancement serum',
-        effects: {
-            damage: () => Math.floor(20 + Math.random() * 25),
-            speed: () => Math.floor(30 + Math.random() * 30),
-            critChance: () => Math.floor(10 + Math.random() * 15),
-            attackSpeed: () => Math.floor(10 + Math.random() * 20),
-        }
-    },
-    'glass06green': {
-        sprite: 'glass06green',
-        name: 'Vitality Elixir',
-        category: 'elixir',
-        rarity: 'legendary',
-        description: 'Perfect life force restoration',
-        effects: {
-            maxHealth: () => Math.floor(80 + Math.random() * 70),
-            health: () => Math.floor(120 + Math.random() * 130),
-            regeneration: () => Math.floor(5 + Math.random() * 8),
-            defense: () => Math.floor(3 + Math.random() * 7),
-        }
-    }
-};
-const WEAPON_TYPES = {
-    'weapon_crystalsword': {
-        sprite: 'weapon_crystalsword',
-        name: 'Crystal Sword',
-        category: 'melee',
-        rarity: 'rare',
-        description: 'Enchanted blade that strikes with magical force',
-        attackRange: 80,
-        attackSpeed: 1600,
-        swingDuration: 1000,
-        restAfterSwing: 1000,
-        damage: () => Math.floor(15 + Math.random() * 10),
-        speed: () => 1.2,
-        range: () => 80,
-        autoAttack: true,
-        projectile: false,
-        effects: {
-            damage: () => Math.floor(5 + Math.random() * 10),
-            critChance: () => Math.floor(3 + Math.random() * 7),
-        },
-        attackEffect: 'weaponhit_effect',
-        swingAnimation: true,
-        uniqueEffect: 'chain_lightning'
-    },
-    'weapon_longsword': {
-        sprite: 'weapon_longsword',
-        name: 'Longsword',
-        category: 'melee',
-        rarity: 'common',
-        description: 'Reliable steel blade for close combat',
-        attackRange: 75,
-        attackSpeed: 1800,
-        swingDuration: 1200,
-        restAfterSwing: 1000,
-        damage: () => Math.floor(12 + Math.random() * 8),
-        speed: () => 0.8,
-        range: () => 75,
-        autoAttack: true,
-        projectile: false,
-        effects: {
-            damage: () => Math.floor(3 + Math.random() * 7),
-        },
-        attackEffect: 'weaponhit_effect',
-        swingAnimation: true
-    },
-    'weapon_dagger': {
-        sprite: 'weapon_dagger',
-        name: 'Swift Dagger',
-        category: 'melee',
-        rarity: 'common',
-        description: 'Fast striking blade for quick attacks',
-        attackRange: 60,
-        attackSpeed: 600,
-        damage: () => Math.floor(8 + Math.random() * 6),
-        speed: () => 1.8,
-        range: () => 60,
-        autoAttack: true,
-        projectile: false,
-        effects: {
-            attackSpeed: () => Math.floor(10 + Math.random() * 15),
-            critChance: () => Math.floor(5 + Math.random() * 10),
-        },
-        attackEffect: 'weaponhit_effect',
-        swingAnimation: true,
-        uniqueEffect: 'double_strike'
-    },
-    'weapon_doubleaxe': {
-        sprite: 'weapon_doubleaxe',
-        name: 'Double Axe',
-        category: 'melee',
-        rarity: 'uncommon',
-        description: 'Heavy weapon that cleaves through enemies',
-        attackRange: 85,
-        attackSpeed: 1500,
-        damage: () => Math.floor(20 + Math.random() * 15),
-        speed: () => 0.6,
-        range: () => 85,
-        autoAttack: true,
-        projectile: false,
-        effects: {
-            damage: () => Math.floor(8 + Math.random() * 12),
-            critDamage: () => Math.floor(15 + Math.random() * 20),
-        },
-        attackEffect: 'weaponhit_effect',
-        swingAnimation: true,
-        uniqueEffect: 'cleave'
-    },
-    'weapon_spear': {
-        sprite: 'weapon_spear',
-        name: 'Battle Spear',
-        category: 'melee',
-        rarity: 'uncommon',
-        description: 'Long reach weapon for keeping enemies at bay',
-        attackRange: 120,
-        attackSpeed: 1100,
-        damage: () => Math.floor(14 + Math.random() * 9),
-        speed: () => 0.9,
-        range: () => 120,
-        autoAttack: true,
-        projectile: false,
-        effects: {
-            damage: () => Math.floor(4 + Math.random() * 8),
-            speed: () => Math.floor(5 + Math.random() * 8),
-        },
-        attackEffect: 'weaponhit_effect',
-        swingAnimation: true
-    },
-    'weapon_bow': {
-        sprite: 'weapon_bow',
-        name: 'Elven Bow',
-        category: 'bow',
-        rarity: 'uncommon',
-        description: 'Swift ranged weapon that pierces from afar',
-        attackRange: 200,
-        attackSpeed: 900,
-        damage: () => Math.floor(12 + Math.random() * 8),
-        speed: () => 1.1,
-        range: () => 200,
-        autoAttack: true,
-        projectile: true,
-        projectileSpeed: 400,
-        projectileSprite: 'arrow',
-        effects: {
-            damage: () => Math.floor(3 + Math.random() * 6),
-            critChance: () => Math.floor(5 + Math.random() * 10),
-        },
-        attackEffect: 'weaponhit_effect',
-        swingAnimation: false
-    },
-    'magic_crystalwand': {
-        sprite: 'magic_crystalwand',
-        name: 'Crystal Wand',
-        category: 'magic',
-        rarity: 'epic',
-        description: 'Magical focus that unleashes arcane energy',
-        attackRange: 150,
-        attackSpeed: 800,
-        damage: () => Math.floor(18 + Math.random() * 12),
-        speed: () => 1.3,
-        range: () => 150,
-        autoAttack: true,
-        projectile: true,
-        projectileSpeed: 300,
-        projectileSprite: 'fireball',
-        effects: {
-            damage: () => Math.floor(10 + Math.random() * 15),
-            maxHealth: () => Math.floor(10 + Math.random() * 20),
-        },
-        attackEffect: 'magic_effect',
-        swingAnimation: false
-    },
-    'magic_orb': {
-        sprite: 'magic_orb',
-        name: 'Mystic Orb',
-        category: 'magic',
-        rarity: 'legendary',
-        description: 'Ancient orb containing immense magical power',
-        attackRange: 200,
-        attackSpeed: 1000,
-        damage: () => Math.floor(25 + Math.random() * 20),
-        speed: () => 1.0,
-        range: () => 200,
-        autoAttack: true,
-        projectile: true,
-        projectileSpeed: 350,
-        projectileSprite: 'orb',
-        effects: {
-            damage: () => Math.floor(15 + Math.random() * 25),
-            regeneration: () => Math.floor(2 + Math.random() * 5),
-            critChance: () => Math.floor(8 + Math.random() * 12),
-        },
-        attackEffect: 'bluefire_effect',
-        swingAnimation: false
-    }
+    // Spec items
+    'sword_sharpener': { sprite: 'weapon_longsword', name: 'Sword Sharpener', category: 'item', rarity: 'common', description: 'Increases flat attack damage', effects: { damage: () => 5 } },
+    'arrow_quiver': { sprite: 'weapon_bow', name: 'Arrow Quiver', category: 'item', rarity: 'common', description: 'Increases projectile speed', effects: { projectileSpeed: () => 50 } },
+    'leather_handle': { sprite: 'weapon_dagger', name: 'Leather Handle', category: 'item', rarity: 'common', description: 'Increases handling, increases attack hit area', effects: { range: () => 10 } },
+    'null_magic_rock': { sprite: 'gem01orange', name: 'Null Magic Rock', category: 'item', rarity: 'uncommon', description: 'Decreases magic damage, increases attack damage', effects: { magicDamageDown: () => 10, damage: () => 8 } },
+    'iron_handle': { sprite: 'gem02blue', name: 'Iron Handle', category: 'item', rarity: 'uncommon', description: 'Slows down character, increases armor', effects: { speedDown: () => 5, defense: () => 5 } },
+    'leather_vest': { sprite: 'berry03purple', name: 'Leather Vest', category: 'item', rarity: 'common', description: 'Increases attack percent', effects: { damagePercent: () => 10 } },
+    'oil_jar': { sprite: 'glass01orange', name: 'Oil Jar', category: 'item', rarity: 'uncommon', description: 'Increase burn AOE', effects: { burnRadius: () => 20 } },
+    'glove': { sprite: 'berry04red', name: 'Glove', category: 'item', rarity: 'common', description: 'Increases weapon size', effects: { weaponSize: () => 0.1 } },
+    'rock_bag': { sprite: 'gem03yellow', name: 'Rock Bag', category: 'item', rarity: 'common', description: 'Increases attack speed', effects: { attackSpeed: () => 10 } },
+    'magic_book': { sprite: 'gem04purple', name: 'Magic Book', category: 'item', rarity: 'rare', description: 'Increase debuffs given to enemies', effects: { debuffPower: () => 1 } },
+    'wizard_robe': { sprite: 'gem05red', name: 'Wizard Robe', category: 'item', rarity: 'rare', description: 'Increases explosion radius', effects: { explosionRadius: () => 20 } },
+    'seeds': { sprite: 'berry01blue', name: 'Seeds', category: 'item', rarity: 'common', description: 'Increases poison damage', effects: { poisonDamage: () => 5 } },
+    'health_vile': { sprite: 'glass02blue', name: 'Health Vile', category: 'item', rarity: 'common', description: 'Increases healing per second', effects: { regeneration: () => 3 } }
 };
 const ENHANCED_ITEM_TYPES = {
     'blueshroom': {
@@ -646,24 +560,36 @@ class Projectile {
         this.velocityY = Math.sin(this.angle) * this.speed;
     }
     createProjectileSprite() {
-        switch (this.weapon.category) {
-            case 'bow':
-                this.sprite = this.scene.add.sprite(this.startX, this.startY, 'arrow_move');
-                this.sprite.setScale(0.8);
-                break;
-            case 'magic':
-                if (this.weapon.name.includes('Wand')) {
+        // Prefer an explicit projectile sprite when provided
+        if (this.weapon.projectileSprite) {
+            this.sprite = this.scene.add.sprite(this.startX, this.startY, this.weapon.projectileSprite);
+        } else {
+            switch (this.weapon.category) {
+                case 'bow':
+                    this.sprite = this.scene.add.sprite(this.startX, this.startY, 'arrow_move');
+                    this.sprite.setScale(0.8);
+                    break;
+                case 'magic':
+                    if (this.weapon.name.includes('Wand')) {
+                        this.sprite = this.scene.add.sprite(this.startX, this.startY, 'fireball1');
+                        this.animateFireball();
+                    } else if (this.weapon.name.includes('Orb')) {
+                        this.sprite = this.scene.add.sprite(this.startX, this.startY, 'fireball3');
+                        this.sprite.setScale(1.2);
+                        this.animateOrb();
+                    } else {
+                        this.sprite = this.scene.add.sprite(this.startX, this.startY, 'fireball1');
+                        this.animateFireball();
+                    }
+                    break;
+                default:
                     this.sprite = this.scene.add.sprite(this.startX, this.startY, 'fireball1');
-                    this.animateFireball();
-                } else if (this.weapon.name.includes('Orb')) {
-                    this.sprite = this.scene.add.sprite(this.startX, this.startY, 'fireball3');
-                    this.sprite.setScale(1.2);
-                    this.animateOrb();
-                }
-                break;
-            default:
-                this.sprite = this.scene.add.sprite(this.startX, this.startY, 'fireball1');
-                break;
+                    break;
+            }
+        }
+        // Apply per-weapon projectile scale if provided (keeps visuals tame)
+        if (this.weapon && typeof this.weapon.projectileScale === 'number') {
+            this.sprite.setScale(this.weapon.projectileScale);
         }
         this.sprite.setDepth(50);
         this.sprite.setRotation(this.angle);
@@ -705,7 +631,11 @@ class Projectile {
         if (distanceToTarget < 30 || distanceTraveled > this.weapon.attackRange) {
             this.explode();
         }
-        this.checkEnemyCollision();
+        // Throttle collision checks to every other frame to reduce CPU
+        this._tickCounter = (this._tickCounter || 0) + 1;
+        if ((this._tickCounter & 1) === 0) {
+            this.checkEnemyCollision();
+        }
     }
     checkEnemyCollision() {
         enemies.forEach(enemy => {
@@ -717,6 +647,10 @@ class Projectile {
                 if (distance < 25) {
                     this.hitTargets.add(enemy.id);
                     enemy.takeDamage(this.damage);
+                    // Apply debuff from projectile's weapon type
+                    if (this.weapon && this.weapon.damageType && enemy.applyDebuff) {
+                        enemy.applyDebuff(this.weapon.damageType, 1 + (player?.debuffPower || 0));
+                    }
                     this.showHitEffect(enemy);
                     player.showFloatingDamage(enemy, this.damage);
                     if (!this.weapon.piercing) {
@@ -821,8 +755,9 @@ class WeaponEntity extends Entity {
 
         this.positionWeapon();
         // Pivot near the handle for a more natural swing
-        this.sprite.setOrigin(0.15, 0.5);
-        this.sprite.setScale(3.0);
+    this.sprite.setOrigin(0.15, 0.5);
+    // Make sword visual 50% smaller
+    this.sprite.setScale(1.5);
         this.sprite.setDepth(50);
         this.sprite.setTint(0xFFD700);
         this.sprite.setAlpha(0); // fade-in for smoother appearance
@@ -831,7 +766,7 @@ class WeaponEntity extends Entity {
             this.shadow = null;
         }
         this.performAttackAnimation();
-        if (DEBUG) console.log("🗡️ WeaponEntity created:", weaponData.name, "at angle:", attackAngle);
+        
     }
     positionWeapon() {
         // Bind position to player's current position, orbiting around the player
@@ -866,7 +801,7 @@ class WeaponEntity extends Entity {
                 this.positionWeapon();
             },
             onComplete: () => {
-                if (DEBUG) console.log("✅ WeaponEntity attack animation completed");
+                
                 // Soft fade-out before destroying for smoother end
                 this.scene.tweens.add({
                     targets: this.sprite,
@@ -910,14 +845,17 @@ class WeaponEntity extends Entity {
         }
     }
     destroy() {
-        if (DEBUG) console.log("🗡️ WeaponEntity destroyed");
+        
         if (this.orbitTween) {
             this.orbitTween.remove();
             this.orbitTween = null;
         }
-        // Clear player's active melee reference if this was the active one
-        if (this.player && this.player.activeMeleeAttack === this) {
-            this.player.activeMeleeAttack = null;
+        // Clear player's active melee reference for this weapon if this was the active one
+        if (this.player && this.weaponData && this.weaponData.id) {
+            const wId = this.weaponData.id;
+            if (this.player.activeMeleeAttacks && this.player.activeMeleeAttacks.get(wId) === this) {
+                this.player.activeMeleeAttacks.delete(wId);
+            }
         }
         super.destroy();
     }
@@ -943,17 +881,22 @@ class Player extends Entity {
         this.regeneration = 0;
         this.attackSpeed = 100;
         this.slowResistance = 0;
+    this.debuffPower = 0; // boosts strength/duration of applied debuffs
         this.inventory = [];
         this.maxInventorySize = 10;
         this.weapons = [];
         this.maxWeapons = 6;
+    this.weaponLevels = {}; // track weapon levels by id
+    this.maxWeaponLevel = 10;
         this.autoAttackEnabled = true;
         this.lastAttackTime = -5000;
         this.currentWeapon = null;
         this.attackTarget = null;
         this.lastFacingAngle = 0;
-    // Track a single active melee swing to prevent overlapping swords at low levels
-    this.activeMeleeAttack = null;
+    // Per-weapon attack state and active melee gating
+    this.weaponAttackState = new Map(); // key: weaponId, value: { lastAttackTime: number }
+    this.activeMeleeAttacks = new Map(); // key: weaponId, value: WeaponEntity
+    this.lastTrailAt = new Map(); // throttle trail drawing per-weapon
     // Pause flag for level-up / modal overlays
     this.isUpgradeOpen = false;
         this.collisionCooldowns = new Map();
@@ -1038,6 +981,7 @@ class Player extends Entity {
     createInventoryUI() {
         this.inventorySlots = [];
         this.inventoryBgs = [];
+        this.inventoryLevelTexts = [];
         
         const startX = 16;
         const startY = 135;
@@ -1059,7 +1003,34 @@ class Player extends Entity {
             slot.setScrollFactor(0);
             slot.setDepth(1001);
             slot.setVisible(false);
+            // Make slots clickable to switch weapons
+            slot.setInteractive({ useHandCursor: true });
+            bg.setInteractive({ useHandCursor: true });
+            // Capture index for handler
+            const index = i;
+            const selectAtIndex = () => {
+                if (!this.weapons || index >= this.weapons.length) return;
+                const selectedWeapon = this.weapons[index];
+                if (selectedWeapon && selectedWeapon !== this.currentWeapon) {
+                    this.currentWeapon = selectedWeapon;
+                    this.updateInventoryUI();
+                }
+            };
+            slot.on('pointerdown', selectAtIndex);
+            bg.on('pointerdown', selectAtIndex);
             this.inventorySlots.push(slot);
+
+            // Level indicator at bottom-right of the slot
+            const lvl = this.scene.add.text(x + slotSize - 2, y + slotSize - 2, '', {
+                fontSize: '11px',
+                fill: '#ffffff',
+                fontStyle: 'bold'
+            });
+            lvl.setOrigin(1, 1);
+            lvl.setScrollFactor(0);
+            lvl.setDepth(1002);
+            lvl.setVisible(false);
+            this.inventoryLevelTexts.push(lvl);
         }
         
         this.updateInventoryUI();
@@ -1071,6 +1042,7 @@ class Player extends Entity {
         for (let i = 0; i < this.maxWeapons; i++) {
             const slot = this.inventorySlots[i];
             const bg = this.inventoryBgs[i];
+            const lvlText = this.inventoryLevelTexts[i];
             
             if (i < this.weapons.length) {
                 const weapon = this.weapons[i];
@@ -1082,10 +1054,17 @@ class Player extends Entity {
                 
                 bg.setFillStyle(isActive ? 0x00AA00 : 0x444444);
                 bg.setStrokeStyle(2, isActive ? 0x00FF00 : 0x888888);
+
+                const wId = weapon.id || weapon.name;
+                const wLevel = this.weaponLevels[wId] || weapon.level || 1;
+                lvlText.setText(`Lv ${wLevel}`);
+                lvlText.setVisible(true);
+                lvlText.setColor(isActive ? '#00ff88' : '#ffffff');
             } else {
                 slot.setVisible(false);
                 bg.setFillStyle(0x222222);
                 bg.setStrokeStyle(2, 0x444444);
+                if (lvlText) lvlText.setVisible(false);
             }
         }
     }
@@ -1126,29 +1105,117 @@ class Player extends Entity {
         this.updateUI();
     }
     addWeapon(weapon) {
-        console.log(`🗡️ Adding weapon: ${weapon.name}, Current weapons count: ${this.weapons.length}`);
-        if (this.weapons.length < this.maxWeapons) {
-            const weaponInstance = {
-                ...weapon,
-                instanceDamage: weapon.damage()
-            };
-            this.weapons.push(weaponInstance);
-            console.log(`✅ Weapon added to inventory. Total weapons: ${this.weapons.length}`);
-            if (this.weapons.length === 1 || !this.currentWeapon) {
-                this.currentWeapon = weaponInstance;
-                console.log(`⚔️ EQUIPPED WEAPON: ${this.currentWeapon.name}`);
-                console.log(`Weapon properties:`, {
-                    autoAttack: this.currentWeapon.autoAttack,
-                    speed: this.currentWeapon.speed(),
-                    damage: this.currentWeapon.instanceDamage
-                });
-                this.updateInventoryUI();
+        // Ensure weapon has an id
+        const weaponId = weapon.id || weapon.name;
+        // Level up if already owned
+        const existing = this.weapons.find(w => (w.id || w.name) === weaponId);
+        if (existing) {
+            const currentLevel = this.weaponLevels[weaponId] || existing.level || 1;
+            if (currentLevel >= this.maxWeaponLevel) {
+                // Already max level, lightly buff damage a bit
+                existing.instanceDamage = Math.floor(existing.instanceDamage * 1.05);
+                return;
             }
-            this.applyWeaponEffects(weaponInstance);
-        } else {
-            console.log(`❌ Cannot add weapon - inventory full (${this.weapons.length}/${this.maxWeapons})`);
+            const nextLevel = currentLevel + 1;
+            this.weaponLevels[weaponId] = nextLevel;
+            existing.level = nextLevel;
+            // Scale stats per level
+            this.scaleWeaponStats(existing);
+            // Apply max behavior when hitting level 10
+            if (nextLevel >= this.maxWeaponLevel) {
+                this.applyMaxWeaponBehavior(existing);
+            }
+            return;
         }
-        console.log(`Final inventory state:`, this.weapons.map(w => w.name));
+
+        // Add new weapon instance
+        if (this.weapons.length >= this.maxWeapons) {
+            
+            return;
+        }
+        const baseDamage = (typeof weapon.damage === 'function') ? weapon.damage() : weapon.damage;
+        const weaponInstance = {
+            ...weapon,
+            id: weaponId,
+            level: 1,
+            baseDamage: baseDamage,
+            baseAttackRange: weapon.attackRange || 80,
+            baseAttackSpeed: weapon.attackSpeed || 1000,
+            instanceDamage: baseDamage
+        };
+        this.weaponLevels[weaponId] = 1;
+        this.weapons.push(weaponInstance);
+        // Initialize per-weapon state
+        this.weaponAttackState.set(weaponId, { lastAttackTime: -99999 });
+        if (this.weapons.length === 1 || !this.currentWeapon) {
+            this.currentWeapon = weaponInstance;
+            this.updateInventoryUI();
+        }
+        this.applyWeaponEffects(weaponInstance);
+    }
+
+    scaleWeaponStats(weaponInstance) {
+        // Generic scaling: +10% damage per level, +4 range per level, -2% cooldown for ranged
+        const lvl = weaponInstance.level || 1;
+        const dmg = Math.max(1, Math.floor(weaponInstance.baseDamage * (1 + 0.10 * (lvl - 1))));
+        weaponInstance.instanceDamage = dmg;
+        weaponInstance.attackRange = Math.floor((weaponInstance.baseAttackRange || 80) + 4 * (lvl - 1));
+        if (weaponInstance.projectile) {
+            const baseCd = weaponInstance.baseAttackSpeed || weaponInstance.attackSpeed || 1000;
+            const newCd = Math.max(200, Math.floor(baseCd * Math.pow(0.98, (lvl - 1))));
+            weaponInstance.attackSpeed = newCd;
+        } else {
+            // Slightly faster swings at higher levels
+            const swing = weaponInstance.swingDuration || 1000;
+            weaponInstance.swingDuration = Math.max(400, Math.floor(swing * Math.pow(0.97, (lvl - 1))));
+        }
+    }
+
+    applyMaxWeaponBehavior(weaponInstance) {
+        if (!weaponInstance.maxBehavior) return;
+        switch (weaponInstance.maxBehavior) {
+            case 'giant_thrust':
+                // Much larger arc and heavier damage
+                weaponInstance.attackRange = Math.max(weaponInstance.attackRange, 180);
+                weaponInstance.instanceDamage = Math.floor(weaponInstance.instanceDamage * 1.6);
+                weaponInstance.swingDuration = Math.max(weaponInstance.swingDuration, 1200);
+                weaponInstance.restAfterSwing = Math.max(weaponInstance.restAfterSwing || 1000, 1000);
+                weaponInstance.maxMode = true;
+                break;
+            case 'spread_shot':
+                // Fire a small spread of arrows
+                weaponInstance.spreadShots = 5; // total shots
+                weaponInstance.spreadAngleDeg = 30; // total cone
+                weaponInstance.maxMode = true;
+                break;
+            case 'rapid_flurry':
+                // Faster dagger cadence and slightly longer reach
+                weaponInstance.attackRange = Math.max(weaponInstance.attackRange, 70);
+                weaponInstance.swingDuration = Math.max(350, Math.floor((weaponInstance.swingDuration || 700) * 0.75));
+                weaponInstance.restAfterSwing = Math.max(400, Math.floor((weaponInstance.restAfterSwing || 900) * 0.75));
+                weaponInstance.instanceDamage = Math.floor(weaponInstance.instanceDamage * 1.2);
+                weaponInstance.maxMode = true;
+                break;
+            case 'whirlwind':
+                // Broad sweeping arcs for axes/flails
+                weaponInstance.attackRange = Math.max(weaponInstance.attackRange, 140);
+                weaponInstance.swingDuration = Math.max(1200, Math.floor((weaponInstance.swingDuration || 1200) * 1.1));
+                weaponInstance.instanceDamage = Math.floor(weaponInstance.instanceDamage * 1.3);
+                weaponInstance.maxMode = true;
+                break;
+            case 'impale':
+                // Longer spear thrusts with more damage
+                weaponInstance.attackRange = Math.max(weaponInstance.attackRange, 160);
+                weaponInstance.instanceDamage = Math.floor(weaponInstance.instanceDamage * 1.4);
+                weaponInstance.maxMode = true;
+                break;
+            case 'inferno_spread':
+                // Magic spreads to multiple motes
+                weaponInstance.spreadShots = Math.max(weaponInstance.spreadShots || 1, 3);
+                weaponInstance.spreadAngleDeg = Math.max(weaponInstance.spreadAngleDeg || 0, 20);
+                weaponInstance.maxMode = true;
+                break;
+        }
     }
     applyWeaponEffects(weapon) {
         if (!weapon.effects) return;
@@ -1200,6 +1267,9 @@ class Player extends Entity {
                 break;
             case 'slowResistance':
                 this.slowResistance += value;
+                break;
+            case 'debuffPower':
+                this.debuffPower += value;
                 break;
         }
     }
@@ -1253,7 +1323,7 @@ class Player extends Entity {
             'epic': 0xa040ff,
             'legendary': 0xff9040
         };
-        items.forEach((item, index) => {
+    items.forEach((item, index) => {
             const baseX = this.scene.cameras.main.centerX + (index - 1) * 280;
             const baseY = this.scene.cameras.main.centerY;
             const bgColor = rarityColors[item.rarity] || rarityColors.common;
@@ -1318,25 +1388,141 @@ class Player extends Entity {
                 }
             });
             uiElements.push(itemContainer, itemSprite, nameText, rarityText, descText, effectText);
-            itemContainer.on('pointerdown', () => {
+            const handlePick = () => {
                 if (choiceMade) return;
                 choiceMade = true;
                 itemContainer.setFillStyle(0x00ff00, 0.4);
                 itemContainer.setStrokeStyle(5, 0x00ff00);
                 this.addToInventory(item);
-                this.scene.time.delayedCall(300, () => {
-                    uiElements.forEach(element => {
-                        if (element && element.destroy) {
-                            element.destroy();
-                        }
-                    });
-                    // Resume game systems
-                    if (this.scene.tweens) this.scene.tweens.resumeAll();
-                    if (this.scene.anims) this.scene.anims.resumeAll();
-                    this.scene.physics.resume();
-                    this.isUpgradeOpen = false;
+                // Close UI immediately for responsiveness
+                uiElements.forEach(element => {
+                    if (element && element.destroy) {
+                        try { element.destroy(); } catch (e) { /* ignore */ }
+                    } else if (element && element.setVisible) {
+                        element.setVisible(false);
+                    }
                 });
+                if (this.scene.tweens) this.scene.tweens.resumeAll();
+                if (this.scene.anims) this.scene.anims.resumeAll();
+                this.scene.physics.resume();
+                this.isUpgradeOpen = false;
+            };
+            itemContainer.on('pointerdown', handlePick);
+            itemSprite.setInteractive({ useHandCursor: true });
+            itemSprite.on('pointerdown', handlePick);
+        });
+    }
+    showInitialWeaponChoice(onComplete) {
+        this.isUpgradeOpen = true;
+        this.scene.physics.pause();
+        if (this.scene.tweens) this.scene.tweens.pauseAll();
+        if (this.scene.anims) this.scene.anims.pauseAll();
+        const screenWidth = this.scene.cameras.main.width;
+        const screenHeight = this.scene.cameras.main.height;
+        const overlay = this.scene.add.rectangle(
+            this.scene.cameras.main.centerX,
+            this.scene.cameras.main.centerY,
+            screenWidth * 0.9, screenHeight * 0.8, 0x000000, 0.85
+        );
+        overlay.setScrollFactor(0);
+        overlay.setDepth(2000);
+        const title = this.scene.add.text(
+            this.scene.cameras.main.centerX,
+            this.scene.cameras.main.centerY - (screenHeight * 0.3),
+            'Choose Your Weapon',
+            { fontSize: '32px', fill: '#ffffff', fontStyle: 'bold' }
+        );
+        title.setOrigin(0.5);
+        title.setScrollFactor(0);
+        title.setDepth(2001);
+        const weaponKeys = Object.keys(WEAPON_TYPES);
+        const picks = Phaser.Utils.Array.Shuffle(weaponKeys).slice(0, 3);
+        const items = picks.map(key => ({ ...WEAPON_TYPES[key], id: key, isWeapon: true, weaponData: { ...WEAPON_TYPES[key], id: key } }));
+        const uiElements = [overlay, title];
+        let choiceMade = false;
+        const rarityColors = {
+            'common': 0x808080,
+            'uncommon': 0x00ff00,
+            'rare': 0x0080ff,
+            'epic': 0x8000ff,
+            'legendary': 0xff8000
+        };
+        const rarityBorderColors = {
+            'common': 0xa0a0a0,
+            'uncommon': 0x40ff40,
+            'rare': 0x4080ff,
+            'epic': 0xa040ff,
+            'legendary': 0xff9040
+        };
+    items.forEach((item, index) => {
+            const baseX = this.scene.cameras.main.centerX + (index - 1) * 280;
+            const baseY = this.scene.cameras.main.centerY;
+            const bgColor = rarityColors[item.rarity] || rarityColors.common;
+            const borderColor = rarityBorderColors[item.rarity] || rarityBorderColors.common;
+            const itemContainer = this.scene.add.rectangle(baseX, baseY, 240, 300, bgColor, 0.15);
+            itemContainer.setScrollFactor(0);
+            itemContainer.setDepth(2001);
+            itemContainer.setStrokeStyle(3, borderColor);
+            itemContainer.setInteractive();
+            const itemSprite = this.scene.add.image(baseX, baseY - 80, item.sprite);
+            itemSprite.setScrollFactor(0);
+            itemSprite.setDepth(2003);
+            itemSprite.setScale(2);
+            const nameText = this.scene.add.text(baseX, baseY - 20, item.name, {
+                fontSize: '18px',
+                fill: '#ffffff',
+                fontStyle: 'bold',
+                align: 'center'
             });
+            nameText.setOrigin(0.5);
+            nameText.setScrollFactor(0);
+            nameText.setDepth(2003);
+            const stats = `${Math.floor(item.damage())} DMG • ${item.attackRange} Range`;
+            const descText = this.scene.add.text(baseX, baseY + 40, stats, {
+                fontSize: '12px',
+                fill: '#cccccc',
+                align: 'center',
+                wordWrap: { width: 200 }
+            });
+            descText.setOrigin(0.5);
+            descText.setScrollFactor(0);
+            descText.setDepth(2003);
+            itemContainer.on('pointerover', () => {
+                if (!choiceMade) {
+                    itemContainer.setFillStyle(bgColor, 0.3);
+                    itemContainer.setStrokeStyle(4, borderColor);
+                    itemSprite.setScale(2.2);
+                }
+            });
+            itemContainer.on('pointerout', () => {
+                if (!choiceMade) {
+                    itemContainer.setFillStyle(bgColor, 0.15);
+                    itemContainer.setStrokeStyle(3, borderColor);
+                    itemSprite.setScale(2);
+                }
+            });
+            uiElements.push(itemContainer, itemSprite, nameText, descText);
+            const handlePick = () => {
+                if (choiceMade) return;
+                choiceMade = true;
+                this.addWeapon(item.weaponData);
+                // Close UI immediately
+                uiElements.forEach(el => {
+                    if (el && el.destroy) {
+                        try { el.destroy(); } catch (e) { /* ignore */ }
+                    } else if (el && el.setVisible) {
+                        el.setVisible(false);
+                    }
+                });
+                if (this.scene.tweens) this.scene.tweens.resumeAll();
+                if (this.scene.anims) this.scene.anims.resumeAll();
+                this.scene.physics.resume();
+                this.isUpgradeOpen = false;
+                if (onComplete) onComplete();
+            };
+            itemContainer.on('pointerdown', handlePick);
+            itemSprite.setInteractive({ useHandCursor: true });
+            itemSprite.on('pointerdown', handlePick);
         });
     }
     getRandomItems(count = 3) {
@@ -1347,7 +1533,7 @@ class Player extends Entity {
             'epic': 4,
             'legendary': 1
         };
-        const allItems = { ...ITEM_TYPES, ...ENHANCED_ITEM_TYPES, ...WEAPON_TYPES };
+    const allItems = { ...ITEM_TYPES, ...ENHANCED_ITEM_TYPES, ...WEAPON_TYPES };
         const allItemKeys = Object.keys(allItems);
         const selectedItems = [];
         for (let i = 0; i < count; i++) {
@@ -1369,7 +1555,7 @@ class Player extends Entity {
                         effects: {},
                         description: '',
                         isWeapon: isWeapon,
-                        weaponData: isWeapon ? itemData : null
+                        weaponData: isWeapon ? { ...itemData, id: randomKey } : null
                     };
                     const effectDescriptions = [];
                     if (itemData.effects) {
@@ -1394,9 +1580,19 @@ class Player extends Entity {
                     }
                     if (isWeapon) {
                         const weaponStats = [];
-                        weaponStats.push(`${Math.floor(itemData.damage())} DMG`);
-                        weaponStats.push(`${itemData.attackRange} Range`);
-                        weaponStats.push(`${(1000 / itemData.attackSpeed).toFixed(1)} APS`);
+                        const dmgVal = (typeof itemData.damage === 'function') ? itemData.damage() : itemData.damage;
+                        weaponStats.push(`${Math.floor(dmgVal)} DMG`);
+                        if (itemData.attackRange) weaponStats.push(`${itemData.attackRange} Range`);
+                        // Compute APS for melee from swing+rest if attackSpeed missing
+                        let aps = null;
+                        if (itemData.attackSpeed) {
+                            aps = 1000 / itemData.attackSpeed;
+                        } else if (itemData.swingDuration || itemData.restAfterSwing) {
+                            const swing = itemData.swingDuration || 1000;
+                            const rest = itemData.restAfterSwing || 1000;
+                            aps = 1000 / (swing + rest);
+                        }
+                        if (aps) weaponStats.push(`${aps.toFixed(2)} APS`);
                         effectDescriptions.unshift(weaponStats.join(' • '));
                     }
                     randomizedItem.description = itemData.description || effectDescriptions.join(', ');
@@ -1483,12 +1679,9 @@ class Player extends Entity {
             if (this.currentWeapon) {
                 if (!this.frameCount) this.frameCount = 0;
                 this.frameCount++;
-                if (DEBUG && this.frameCount % 60 === 0) {
-                    console.log(`Update loop running - Frame: ${this.frameCount}, Time: ${this.scene.time.now}, Weapon: ${this.currentWeapon.name}`);
-                }
                 this.autoAttack();
             } else {
-                if (DEBUG) console.log("Player update: No current weapon!");
+                // no current weapon; nothing to log
             }
         }
     }
@@ -1512,57 +1705,57 @@ class Player extends Entity {
     }
     autoAttack() {
         // Block attacks when an upgrade modal is open
-        if (this.isUpgradeOpen) {
-            return;
-        }
-        if (!this.autoAttackEnabled || !this.currentWeapon) {
-            if (DEBUG) console.log("Auto-attack blocked:", { enabled: this.autoAttackEnabled, weapon: !!this.currentWeapon });
-            return;
-        }
+        if (this.isUpgradeOpen || !this.autoAttackEnabled) return;
+        if (!this.weapons || this.weapons.length === 0) return;
         const currentTime = this.scene.time.now;
-        // Determine cooldown: for melee, use swing + rest to avoid overlap; for ranged, keep original scaling
-        let attackCooldown;
-        const isMelee = this.currentWeapon && !this.currentWeapon.projectile;
-        if (isMelee) {
-            const swing = (this.currentWeapon.swingDuration) ? this.currentWeapon.swingDuration : 1000;
-            const rest = (this.currentWeapon.restAfterSwing) ? this.currentWeapon.restAfterSwing : 1000;
-            attackCooldown = swing + rest; // e.g., 1000ms swing + 1000ms rest = 2000ms cadence
-        } else {
-            const baseCooldown = (this.currentWeapon && this.currentWeapon.attackSpeed) ? this.currentWeapon.attackSpeed : 800;
-            // Reduce cooldown by player's attackSpeed bonus (percentage). Clamp to a sensible minimum
-            attackCooldown = Math.max(200, Math.floor(baseCooldown * 100 / (100 + this.attackSpeed)));
-        }
-        const timeSinceLastAttack = currentTime - this.lastAttackTime;
-        if (DEBUG && this.frameCount % 60 === 0) {
-            console.log(`🔄 AUTO-ATTACK CHECK - Time since last: ${timeSinceLastAttack}ms / ${attackCooldown}ms needed`);
-            console.log(`Current weapon: ${this.currentWeapon ? this.currentWeapon.name : 'none'}`);
-            console.log(`Auto-attack enabled: ${this.autoAttackEnabled}`);
-        }
-        if (timeSinceLastAttack < attackCooldown) {
-            return;
-        }
         const target = this.findNearestEnemy();
-        if (DEBUG) {
-            console.log(`🗡️ ⚔️ ATTACK TRIGGERED! ⚔️ Time: ${currentTime}, Last: ${this.lastAttackTime}, Difference: ${timeSinceLastAttack}`);
-            console.log(`🎯 Target found: ${target ? 'YES' : 'NO'}`);
+        // Iterate all weapons and trigger if their own cooldown has elapsed
+        for (const weapon of this.weapons) {
+            if (!weapon) continue;
+            const wId = weapon.id || weapon.name;
+            let state = this.weaponAttackState.get(wId);
+            if (!state) {
+                state = { lastAttackTime: -99999 };
+                this.weaponAttackState.set(wId, state);
+            }
+            const attackCooldown = this.getWeaponCooldown(weapon);
+            const timeSince = currentTime - state.lastAttackTime;
+            if (timeSince < attackCooldown) continue;
+            // For melee, prevent overlap per-weapon
+            if (!weapon.projectile) {
+                const activeSwing = this.activeMeleeAttacks.get(wId);
+                if (activeSwing && activeSwing.isAlive) continue;
+            }
+            this.performContinuousAttackFor(weapon, target);
+            state.lastAttackTime = currentTime;
         }
-        // Prevent overlapping melee swings: only one sword instance at a time
-        if (isMelee && this.activeMeleeAttack && this.activeMeleeAttack.isAlive) {
-            return;
-        }
+    }
 
-        this.performContinuousAttack(target);
-        this.lastAttackTime = currentTime;
+    getWeaponCooldown(weapon) {
+        if (!weapon) return 1000;
+        if (!weapon.projectile) {
+            const swing = weapon.swingDuration || 1000;
+            const rest = weapon.restAfterSwing || 1000;
+            return swing + rest;
+        }
+        const baseCooldown = weapon.attackSpeed || 800;
+        return Math.max(200, Math.floor(baseCooldown * 100 / (100 + this.attackSpeed)));
     }
     performContinuousAttack(target) {
-        if (this.currentWeapon && this.currentWeapon.projectile) {
+        // Backward-compatible: use current weapon
+        if (!this.currentWeapon) return;
+        this.performContinuousAttackFor(this.currentWeapon, target);
+    }
+
+    performContinuousAttackFor(weapon, target) {
+        if (weapon.projectile) {
             if (target) {
                 let attackAngle = Phaser.Math.Angle.Between(
                     this.sprite.x, this.sprite.y,
                     target.sprite.x, target.sprite.y
                 );
-                this.showWeaponSwingAtAngle(attackAngle);
-                this.performAttack(target);
+                // Remove half-circle arc/trail for projectile weapons (bow, wands, etc.)
+                this.performWeaponAttack(weapon, target);
             }
         } else {
             let attackAngle;
@@ -1574,17 +1767,23 @@ class Player extends Entity {
             } else {
                 attackAngle = this.lastFacingAngle || 0;
             }
-            this.createWeaponAttack(attackAngle);
-            this.createAttackHitbox(attackAngle);
+            this.createWeaponAttackFor(weapon, attackAngle);
+            this.createAttackHitboxFor(weapon, attackAngle);
         }
     }
-    showWeaponSwingAtAngle(angle) {
+    showWeaponSwingAtAngle(angle, weaponOverride = null) {
         // Restore simple travel trail (no sparkles): a clean arc that fades out smoothly
-        if (DEBUG) console.log("Swing trail at angle:", angle);
+        // Throttle trail draws to avoid excessive Graphics allocations
+        const w = weaponOverride || this.currentWeapon;
+        const wid = (w && (w.id || w.name)) || 'default';
+        const now = this.scene.time.now;
+        const last = this.lastTrailAt.get(wid) || 0;
+        if (now - last < 120) return;
+        this.lastTrailAt.set(wid, now);
         const slashEffect = this.scene.add.graphics();
-        slashEffect.lineStyle(10, 0xFFD700, 0.9);
+        slashEffect.lineStyle(6, 0xFFD700, 0.8);
         slashEffect.setDepth(200);
-        const radius = this.currentWeapon && this.currentWeapon.attackRange ? this.currentWeapon.attackRange : 80;
+        const radius = w && w.attackRange ? w.attackRange : 80;
         const arcStartAngle = angle - Math.PI / 2;
         const arcEndAngle = angle + Math.PI / 2;
         slashEffect.beginPath();
@@ -1593,28 +1792,30 @@ class Player extends Entity {
         this.scene.tweens.add({
             targets: slashEffect,
             alpha: 0,
-            duration: 420,
+            duration: 300,
             ease: 'Sine.easeOut',
             onComplete: () => slashEffect.destroy()
         });
     }
     createWeaponAttack(angle) {
         if (!this.currentWeapon) {
-            console.log("❌ No weapon to create attack with!");
             return;
         }
-        if (DEBUG) console.log("🗡️ Creating WeaponEntity attack at angle:", angle);
+        
         // For melee, ensure only a single active instance is present
         if (this.currentWeapon && !this.currentWeapon.projectile) {
-            if (this.activeMeleeAttack && this.activeMeleeAttack.isAlive) return;
+            const wId = this.currentWeapon.id || this.currentWeapon.name;
+            const active = this.activeMeleeAttacks.get(wId);
+            if (active && active.isAlive) return;
         }
         const weaponEntity = new WeaponEntity(this.scene, this, this.currentWeapon, angle);
         if (this.currentWeapon && !this.currentWeapon.projectile) {
-            this.activeMeleeAttack = weaponEntity;
+            const wId = this.currentWeapon.id || this.currentWeapon.name;
+            this.activeMeleeAttacks.set(wId, weaponEntity);
         }
     }
     createAttackHitbox(angle) {
-    if (DEBUG) console.log("Creating attack hitbox at angle:", angle);
+    
         const hitboxDistance = 50;
         const hitboxX = this.sprite.x + Math.cos(angle) * hitboxDistance;
         const hitboxY = this.sprite.y + Math.sin(angle) * hitboxDistance;
@@ -1628,7 +1829,7 @@ class Player extends Entity {
         slashEffect.beginPath();
         slashEffect.arc(this.sprite.x, this.sprite.y, slashLength, startAngle, endAngle);
         slashEffect.strokePath();
-        this.checkEnemiesInAttackArea(hitboxX, hitboxY, slashLength);
+        this.checkEnemiesInAttackArea(hitboxX, hitboxY, slashLength, this.currentWeapon);
         this.scene.tweens.add({
             targets: slashEffect,
             alpha: 0,
@@ -1638,7 +1839,17 @@ class Player extends Entity {
             }
         });
     }
-    checkEnemiesInAttackArea(centerX, centerY, radius) {
+    createWeaponAttackFor(weapon, angle) {
+        if (!weapon) return;
+        if (weapon && !weapon.projectile) {
+            const wId = weapon.id || weapon.name;
+            const active = this.activeMeleeAttacks.get(wId);
+            if (active && active.isAlive) return;
+            const weaponEntity = new WeaponEntity(this.scene, this, weapon, angle);
+            this.activeMeleeAttacks.set(wId, weaponEntity);
+        }
+    }
+    checkEnemiesInAttackArea(centerX, centerY, radius, weaponOverride = null) {
         enemies.forEach(enemy => {
             if (enemy.isAlive) {
                 const distance = Phaser.Math.Distance.Between(
@@ -1646,15 +1857,19 @@ class Player extends Entity {
                     enemy.sprite.x, enemy.sprite.y
                 );
                 if (distance <= radius) {
-                    let damage = this.currentWeapon.instanceDamage ||
-                                (typeof this.currentWeapon.damage === 'function' ? this.currentWeapon.damage() : this.currentWeapon.damage);
+                    const w = weaponOverride || this.currentWeapon;
+                    let damage = w.instanceDamage || (typeof w.damage === 'function' ? w.damage() : w.damage);
                     damage += this.baseDamage;
                     const critRoll = Math.random() * 100;
                     if (critRoll < this.critChance) {
                         damage = Math.floor(damage * (this.critDamage / 100));
                     }
-                    console.log(`Hit enemy for ${damage} damage!`);
+                    
                     enemy.takeDamage(damage);
+                    // Apply debuff based on weapon damage type
+                    if (w && w.damageType && enemy.applyDebuff) {
+                        enemy.applyDebuff(w.damageType, 1 + (this.debuffPower || 0));
+                    }
                     this.showFloatingDamage(enemy, damage);
                     this.showAttackEffect(enemy);
                 }
@@ -1662,27 +1877,44 @@ class Player extends Entity {
         });
     }
     performAttack(target) {
+        // Backward-compatible: use current weapon
         if (!this.currentWeapon || !target) return;
-        let damage = this.currentWeapon.instanceDamage ||
-                    (typeof this.currentWeapon.damage === 'function' ? this.currentWeapon.damage() : this.currentWeapon.damage);
+        this.performWeaponAttack(this.currentWeapon, target);
+    }
+
+    performWeaponAttack(weapon, target) {
+        if (!weapon || !target) return;
+        let damage = weapon.instanceDamage || (typeof weapon.damage === 'function' ? weapon.damage() : weapon.damage);
         damage += this.baseDamage;
         const critRoll = Math.random() * 100;
         if (critRoll < this.critChance) {
             damage = Math.floor(damage * (this.critDamage / 100));
         }
-        if (this.currentWeapon.projectile) {
-            this.launchProjectile(target, damage);
+        if (weapon.projectile) {
+            this.launchProjectileWithWeapon(weapon, target, damage);
         } else {
-            this.performMeleeAttack(target, damage);
+            this.performMeleeAttackWithWeapon(weapon, target, damage);
         }
     }
     performMeleeAttack(target, damage) {
+        // Backward-compatible for current weapon
+        if (!this.currentWeapon || !target) return;
+        this.performMeleeAttackWithWeapon(this.currentWeapon, target, damage);
+    }
+
+    performMeleeAttackWithWeapon(weapon, target, damage) {
         this.showWeaponSwing(target);
-        this.createSlashHitbox(target, damage);
-        this.showAttackEffect(target);
-        this.applyWeaponUniqueEffect(target, damage);
+        this.createSlashHitboxFor(weapon, target, damage);
+    this.showAttackEffect(target);
+    this.applyWeaponUniqueEffectFor(weapon, target, damage);
     }
     createSlashHitbox(target, damage) {
+        // Backward-compatible; use current weapon
+        if (!this.currentWeapon) return;
+        this.createSlashHitboxFor(this.currentWeapon, target, damage);
+    }
+
+    createSlashHitboxFor(weapon, target, damage) {
         const angle = Phaser.Math.Angle.Between(
             this.sprite.x, this.sprite.y,
             target.sprite.x, target.sprite.y
@@ -1690,25 +1922,44 @@ class Player extends Entity {
         const hitboxDistance = 50;
         const hitboxX = this.sprite.x + Math.cos(angle) * hitboxDistance;
         const hitboxY = this.sprite.y + Math.sin(angle) * hitboxDistance;
-        const slashEffect = this.scene.add.graphics();
-        slashEffect.lineStyle(4, 0xFFFFFF, 1);
-    const slashLength = this.currentWeapon && this.currentWeapon.attackRange ? this.currentWeapon.attackRange : 60;
+        // Throttle only the visual trail; damage still applies instantly
+        let allowTrail = true;
+        const wid = (weapon && (weapon.id || weapon.name)) || 'default_melee';
+        const now = this.scene.time.now;
+        const last = this.lastTrailAt.get(wid) || 0;
+        if (now - last < 120) {
+            allowTrail = false;
+        } else {
+            this.lastTrailAt.set(wid, now);
+        }
+        let slashEffect = null;
+        if (allowTrail) {
+            slashEffect = this.scene.add.graphics();
+            slashEffect.lineStyle(3, 0xFFFFFF, 0.9);
+            slashEffect.setDepth(100);
+            slashEffect.beginPath();
+            slashEffect.arc(this.sprite.x, this.sprite.y, slashLength, startAngle, endAngle);
+            slashEffect.strokePath();
+        }
+    const slashLength = weapon && weapon.attackRange ? weapon.attackRange : 60;
         const slashAngle = Math.PI / 3;
         const startAngle = angle - slashAngle / 2;
         const endAngle = angle + slashAngle / 2;
-        slashEffect.beginPath();
-        slashEffect.arc(this.sprite.x, this.sprite.y, slashLength, startAngle, endAngle);
-        slashEffect.strokePath();
         target.takeDamage(damage);
+        if (weapon && weapon.damageType && target.applyDebuff) {
+            target.applyDebuff(weapon.damageType, 1 + (this.debuffPower || 0));
+        }
         this.showFloatingDamage(target, damage);
-        this.scene.tweens.add({
-            targets: slashEffect,
-            alpha: 0,
-            duration: 200,
-            onComplete: () => {
-                slashEffect.destroy();
-            }
-        });
+        if (slashEffect) {
+            this.scene.tweens.add({
+                targets: slashEffect,
+                alpha: 0,
+                duration: 200,
+                onComplete: () => {
+                    slashEffect.destroy();
+                }
+            });
+        }
     }
     showFloatingDamage(target, damage) {
         const damageText = this.scene.add.text(
@@ -1737,17 +1988,38 @@ class Player extends Entity {
         });
     }
     launchProjectile(target, damage) {
-        const projectile = new Projectile(
-            this.scene,
-            this.sprite.x,
-            this.sprite.y,
-            target.sprite.x,
-            target.sprite.y,
-            this.currentWeapon,
-            damage
-        );
-        projectiles.push(projectile);
-        if (this.currentWeapon.category === 'magic') {
+        // Backward-compatible; use current weapon
+        if (!this.currentWeapon) return;
+        this.launchProjectileWithWeapon(this.currentWeapon, target, damage);
+    }
+
+    launchProjectileWithWeapon(weapon, target, damage) {
+        const baseAngle = Phaser.Math.Angle.Between(this.sprite.x, this.sprite.y, target.sprite.x, target.sprite.y);
+        const shots = (weapon && weapon.spreadShots) ? weapon.spreadShots : 1;
+        const spread = (weapon && weapon.spreadAngleDeg) ? weapon.spreadAngleDeg : 0;
+        const half = Math.floor(shots / 2);
+        for (let i = 0; i < shots; i++) {
+            let offsetDeg = 0;
+            if (shots > 1) {
+                // Distribute evenly across spread cone
+                offsetDeg = (-spread / 2) + (i * (spread / (shots - 1)));
+            }
+            const angle = baseAngle + Phaser.Math.DEG_TO_RAD * offsetDeg;
+            const dist = Phaser.Math.Distance.Between(this.sprite.x, this.sprite.y, target.sprite.x, target.sprite.y);
+            const endX = this.sprite.x + Math.cos(angle) * dist;
+            const endY = this.sprite.y + Math.sin(angle) * dist;
+            const projectile = new Projectile(
+                this.scene,
+                this.sprite.x,
+                this.sprite.y,
+                endX,
+                endY,
+                weapon,
+                damage
+            );
+            projectiles.push(projectile);
+        }
+        if (weapon.category === 'magic') {
             this.showCastingEffect();
         }
     }
@@ -1761,7 +2033,12 @@ class Player extends Entity {
         });
     }
     applyWeaponUniqueEffect(target, damage) {
-        switch (this.currentWeapon.name) {
+        // Backward-compatible: use current weapon
+        if (!this.currentWeapon) return;
+        this.applyWeaponUniqueEffectFor(this.currentWeapon, target, damage);
+    }
+    applyWeaponUniqueEffectFor(weapon, target, damage) {
+        switch (weapon.name) {
             case 'Swift Dagger':
                 if (Math.random() < 0.25) {
                     this.scene.time.delayedCall(200, () => {
@@ -1791,6 +2068,21 @@ class Player extends Entity {
                     this.chainLightning(target, damage);
                 }
                 break;
+            case 'Shield': {
+                // Push enemies away a short distance
+                const angle = Phaser.Math.Angle.Between(this.sprite.x, this.sprite.y, target.sprite.x, target.sprite.y);
+                const pushDist = 40;
+                const destX = target.sprite.x + Math.cos(angle) * pushDist;
+                const destY = target.sprite.y + Math.sin(angle) * pushDist;
+                this.scene.tweens.add({
+                    targets: target.sprite,
+                    x: destX,
+                    y: destY,
+                    duration: 120,
+                    ease: 'Sine.easeOut'
+                });
+                break;
+            }
         }
     }
     chainLightning(startTarget, baseDamage) {
@@ -2049,8 +2341,9 @@ class Enemy extends Entity {
         const baseScale = 1.0;
         const densityFactor = (enemyData.health + enemyData.size) / 100;
         const scaleBonus = densityFactor > 1.5 ? 0.5 : 0;
-        const finalScale = baseScale + scaleBonus;
-        const scaledSize = enemyData.size * finalScale;
+    const finalScale = baseScale + scaleBonus;
+    // Make enemies ~30% larger visually
+    const scaledSize = enemyData.size * finalScale * 1.3;
         this.sprite.setDisplaySize(scaledSize, scaledSize);
         const sizeSpeedModifier = Math.max(0.5, 1 - (enemyData.size - 24) / 200);
         const randomSpeedVariation = 0.8 + Math.random() * 0.4;
@@ -2059,6 +2352,12 @@ class Enemy extends Entity {
         this.health = Math.floor(enemyData.health * difficultyMultiplier);
         this.maxHealth = this.health;
         this.damage = Math.floor(enemyData.damage * difficultyMultiplier);
+        this.damageTakenMultiplier = 1.0;
+        this.debuffs = {
+            poison: { time: 0, tick: 0.2, acc: 0 },
+            burn: { time: 0, tick: 1.0, acc: 0 },
+            armorWeaken: { time: 0, mult: 1.15 }
+        };
         this.direction = Math.random() * Math.PI * 2;
         const shadowSize = Math.max(30, scaledSize * 0.6);
         this.collisionRadius = shadowSize * 0.75;
@@ -2189,6 +2488,7 @@ class Enemy extends Entity {
     update() {
         super.update();
         if (this.isAlive && player && player.isAlive) {
+            this.updateDebuffs();
             this.updateDirectionToPlayer();
             const currentDirection = this.lockedDirection !== null ? this.lockedDirection : this.direction;
             const moveX = Math.cos(currentDirection) * this.speed;
@@ -2214,8 +2514,59 @@ class Enemy extends Entity {
             this.updateHPBar();
         }
     }
+    updateDebuffs() {
+        const dt = (this.scene && this.scene.game && this.scene.game.loop) ? (this.scene.game.loop.delta / 1000) : (1/60);
+        // Armor weaken
+        if (this.debuffs.armorWeaken.time > 0) {
+            this.debuffs.armorWeaken.time -= dt;
+            this.damageTakenMultiplier = this.debuffs.armorWeaken.mult;
+            if (this.debuffs.armorWeaken.time <= 0) {
+                this.damageTakenMultiplier = 1.0;
+            }
+        }
+        // Poison ticks quickly, can't kill (leave at least 1 HP)
+        if (this.debuffs.poison.time > 0) {
+            this.debuffs.poison.time -= dt;
+            this.debuffs.poison.acc += dt;
+            if (this.debuffs.poison.acc >= this.debuffs.poison.tick) {
+                this.debuffs.poison.acc = 0;
+                const dmg = Math.max(1, Math.floor(2 + currentDifficulty * 0.5));
+                if (this.health > 1) {
+                    this.health = Math.max(1, this.health - dmg);
+                    this.updateHPBar();
+                }
+            }
+        }
+        // Burn ticks slower
+        if (this.debuffs.burn.time > 0) {
+            this.debuffs.burn.time -= dt;
+            this.debuffs.burn.acc += dt;
+            if (this.debuffs.burn.acc >= this.debuffs.burn.tick) {
+                this.debuffs.burn.acc = 0;
+                const dmg = Math.max(1, Math.floor(3 + currentDifficulty));
+                this.takeDamage(dmg);
+            }
+        }
+    }
+    applyDebuff(type, power = 1) {
+        switch (type) {
+            case DAMAGE_TYPES.POISON:
+                this.debuffs.poison.time = Math.min(6, (this.debuffs.poison.time || 0) + 2 * power);
+                break;
+            case DAMAGE_TYPES.BURN:
+                this.debuffs.burn.time = Math.min(6, (this.debuffs.burn.time || 0) + 2 * power);
+                break;
+            case DAMAGE_TYPES.LIGHTNING:
+            case DAMAGE_TYPES.ARMOR_WEAKEN:
+                this.debuffs.armorWeaken.time = Math.min(5, (this.debuffs.armorWeaken.time || 0) + 2 * power);
+                break;
+            default:
+                break;
+        }
+    }
     takeDamage(damage) {
-        this.health -= damage;
+        const scaled = Math.floor(damage * (this.damageTakenMultiplier || 1.0));
+        this.health -= scaled;
         this.sprite.setTint(0xff0000);
         this.scene.time.delayedCall(100, () => {
             if (this.isAlive) {
@@ -2358,6 +2709,10 @@ function preload() {
     this.load.image('diamond', '../sprites/items/Diamond.png');
     this.load.image('goldencup', '../sprites/items/GoldenCup.png');
     this.load.image('lantern', '../sprites/items/Lantern.png');
+    // Additional item-based icons used as weapon sprites
+    this.load.image('weapon_shield_icon', '../sprites/items/MetalShield.png');
+    this.load.image('weapon_torch_icon', '../sprites/items/Flashlight.png');
+    this.load.image('weapon_stone_icon', '../sprites/items/SnowBall.png');
     this.load.image('weapon_crystalsword', '../sprites/weapons/weapon01crystalsword.gif');
     this.load.image('weapon_dagger', '../sprites/weapons/weapon02dagger.gif');
     this.load.image('weapon_longsword', '../sprites/weapons/weapon03longsword.gif');
@@ -2424,7 +2779,6 @@ function create() {
             if (selectedWeapon && selectedWeapon !== player.currentWeapon) {
                 player.currentWeapon = selectedWeapon;
                 player.updateInventoryUI();
-                console.log(`🔄 Switched to weapon: ${selectedWeapon.name}`);
             }
         }
     });
@@ -2433,16 +2787,9 @@ function create() {
     camera.startFollow(player.sprite);
     camera.setLerp(0.05, 0.05);
     createEffectAnimations.call(this);
-    const startingWeapon = { ...WEAPON_TYPES['weapon_longsword'] };
-    player.addWeapon(startingWeapon);
-    if (DEBUG) {
-        console.log("Starting weapon:", startingWeapon);
-        console.log("Player current weapon:", player.currentWeapon);
-        console.log("Auto-attack enabled:", player.autoAttackEnabled);
-        console.log("Weapon sprite created:", player.weaponSprite);
-        console.log("Player lastAttackTime:", player.lastAttackTime);
-        console.log("Current scene time:", player.scene.time.now);
-    }
+    // Intro/Choice gating
+    GAME_STATE = 'intro';
+    startIntroSequence.call(this);
 
     this.input.on('pointerdown', function(pointer) {
         if (!player || !player.isAlive || !player.currentWeapon) return;
@@ -2472,7 +2819,7 @@ function create() {
                         damage = Math.floor(damage * (player.critDamage / 100));
                     }
                     
-                    if (DEBUG) console.log(`💥 CLICK ATTACK! Hit ${enemy.enemyType} for ${damage} damage`);
+                    
                     enemy.takeDamage(damage);
                     player.showFloatingDamage(enemy, damage);
                     player.showAttackEffect(enemy);
@@ -2486,11 +2833,9 @@ function create() {
         }
     });
     
-    if (DEBUG) console.log("✋ Click to attack enabled! Click near enemies to attack them.");
+    
     
     generateInitialChunks.call(this);
-    spawnEnemies.call(this);
-    startDifficultyProgression.call(this);
 }
 function update() {
     if (player && player.isAlive) {
@@ -2499,19 +2844,21 @@ function update() {
         player.updateHPBar();
         checkEntityCollisions.call(this);
     }
-    enemies.forEach(enemy => {
-        if (enemy.isAlive) {
-            enemy.update();
-        }
-    });
-    enemies = enemies.filter(enemy => enemy.isAlive);
-    projectiles.forEach(projectile => {
-        if (projectile.isAlive) {
-            projectile.update();
-        }
-    });
-    projectiles = projectiles.filter(projectile => projectile.isAlive);
-    maintainEnemyLimit.call(this);
+    if (GAME_STATE === 'playing') {
+        enemies.forEach(enemy => {
+            if (enemy.isAlive) {
+                enemy.update();
+            }
+        });
+        enemies = enemies.filter(enemy => enemy.isAlive);
+        projectiles.forEach(projectile => {
+            if (projectile.isAlive) {
+                projectile.update();
+            }
+        });
+        projectiles = projectiles.filter(projectile => projectile.isAlive);
+        maintainEnemyLimit.call(this);
+    }
     updateChunks.call(this);
 }
 function createEffectAnimations() {
@@ -2538,6 +2885,38 @@ function createEffectAnimations() {
         frames: this.anims.generateFrameNumbers('bluefire_effect', { start: 0, end: 11 }),
         frameRate: 12,
         repeat: 0
+    });
+}
+function startIntroSequence() {
+    // Simple intro banner
+    const width = this.cameras.main.width;
+    const height = this.cameras.main.height;
+    const overlay = this.add.rectangle(this.cameras.main.centerX, this.cameras.main.centerY, width, height, 0x000000, 0.6);
+    overlay.setScrollFactor(0);
+    overlay.setDepth(1800);
+    const title = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY - 60, 'Chariot Race to the Colosseum', {
+        fontSize: '36px', fill: '#ffffff', fontStyle: 'bold'
+    });
+    title.setOrigin(0.5);
+    title.setScrollFactor(0);
+    title.setDepth(1801);
+    const subtitle = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY, 'A sudden crash... choose your weapon!', {
+        fontSize: '20px', fill: '#dddddd'
+    });
+    subtitle.setOrigin(0.5);
+    subtitle.setScrollFactor(0);
+    subtitle.setDepth(1801);
+    // After a short delay, open weapon choice
+    this.time.delayedCall(1200, () => {
+        if (title && title.destroy) title.destroy();
+        if (subtitle && subtitle.destroy) subtitle.destroy();
+        player.showInitialWeaponChoice(() => {
+            // On selection complete
+            if (overlay && overlay.destroy) overlay.destroy();
+            GAME_STATE = 'playing';
+            spawnEnemies.call(this);
+            startDifficultyProgression.call(this);
+        });
     });
 }
 function getDifficultyLevel() {
@@ -2621,6 +3000,7 @@ function createHPBar(entity, width = 50, height = 6, color = 0xff0000) {
     };
 }
 function maintainEnemyLimit() {
+    if (GAME_STATE !== 'playing') return;
     updateDifficulty();
     if (currentEnemyCount < maxEnemies) {
         const enemiesToSpawn = Math.min(maxEnemies - currentEnemyCount, 2);
@@ -2630,6 +3010,7 @@ function maintainEnemyLimit() {
     }
 }
 function spawnEnemies() {
+    if (GAME_STATE !== 'playing') return;
     const initialSpawn = Math.min(maxEnemies, 3);
     for (let i = 0; i < initialSpawn; i++) {
         spawnSingleEnemy.call(this);
