@@ -99,7 +99,8 @@ export const WEAPON_TYPES = {
     rarity: 'common',
     description: 'Pebble toss with high speed.',
     attackRange: 180,
-  attackSpeed: 525,
+  // Slow down by ~200% (3x cooldown) for clearer cadence and to reduce spam
+  attackSpeed: 1575,
   projectile: true,
   projectileSpeed: 500,
   // Use the rock/snowball icon as the projectile sprite (no fireball animation)
@@ -184,11 +185,11 @@ export const WEAPON_TYPES = {
     rarity: 'common',
     description: 'Thrown dagger to nearest foe. Low damage, high speed, no pierce.',
     attackRange: 220,
-  // Slow the dagger down a bit to reduce spam and improve readability
-  attackSpeed: 650,
+  // Slow the dagger down further by ~200% (3x cooldown) to reduce spam and ensure reliability
+  attackSpeed: 2700,
     projectile: true,
-    // Slightly slower travel to match the reduced cadence
-    projectileSpeed: 560,
+  // Slightly slower travel to match the reduced cadence
+  projectileSpeed: 520,
     projectileSprite: 'weapon_dagger',
     projectileScale: 0.9,
     piercing: false,
@@ -203,11 +204,15 @@ export const WEAPON_TYPES = {
     category: 'melee',
     damageType: DAMAGE_TYPES.PHYSICAL,
     rarity: 'uncommon',
-    description: 'Heavy swings that cleave nearby foes.',
-  attackRange: 140,
-  swingDuration: 1800,
-  restAfterSwing: 1800,
-    projectile: false,
+    description: 'A thrown axe that drifts slowly across the arena.',
+    attackRange: 220,
+    // Now behaves like a slow projectile that travels across the screen
+    attackSpeed: 2400,
+    projectile: true,
+    projectileSpeed: 140,
+  projectileSprite: 'weapon_doubleaxe',
+  projectileScale: 1.6,
+    travelToEdge: true,
     damage: () => 20,
     speed: () => 0.9,
     maxBehavior: 'whirlwind'

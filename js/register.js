@@ -1,5 +1,13 @@
 document.addEventListener('DOMContentLoaded', function() {
     const registerForm = document.querySelector('#registerForm form');
+    // Enforce client-side 13+ by setting max attribute to today - 13 years and requiring DOB
+    const dobInput = document.getElementById('DateOfBirth');
+    if (dobInput) {
+        const today = new Date();
+        const maxDate = new Date(today.getFullYear() - 13, today.getMonth(), today.getDate());
+        dobInput.max = maxDate.toISOString().split('T')[0];
+        dobInput.required = true;
+    }
     
     if (registerForm) {
         registerForm.addEventListener('submit', function(e) {
@@ -11,6 +19,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 password: document.getElementById('password').value,
                 dateOfBirth: document.getElementById('DateOfBirth').value
             };
+
+            // Client-side age validation (mirrors server-side auth)
+            const dobStr = formData.dateOfBirth;
+            if (!dobStr) {
+                displayMessage('Date of birth is required.', 'error');
+                return;
+            }
+            const dob = new Date(dobStr);
+            if (isNaN(dob.getTime())) {
+                displayMessage('Please enter a valid date of birth.', 'error');
+                return;
+            }
+            const today = new Date();
+            const threshold = new Date(today.getFullYear() - 13, today.getMonth(), today.getDate());
+            if (dob > threshold) {
+                displayMessage('You must be at least 13 years old to register.', 'error');
+                return;
+            }
             
             const result = auth.register(formData);
             

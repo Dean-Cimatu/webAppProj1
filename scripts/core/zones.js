@@ -29,7 +29,11 @@ export class BurnZone {
           const last = this._perEnemyHitAt.get(e.id) || 0;
           if ((now - last) >= 180) {
             this._perEnemyHitAt.set(e.id, now);
-            e.takeDamage(this.dps, 'burn');
+            if (e.tryTakeDamage) {
+              e.tryTakeDamage(this.dps, 'burn', 'weapon_torch', 180);
+            } else {
+              e.takeDamage(this.dps, 'burn');
+            }
             if (e.applyDebuff) e.applyDebuff('burn', 1);
           }
         }
@@ -76,7 +80,11 @@ export class FollowZone {
           const last = this._perEnemyHitAt.get(e.id) || 0;
           if ((now - last) >= 180) {
             this._perEnemyHitAt.set(e.id, now);
-            e.takeDamage(this.dps, 'burn');
+            if (e.tryTakeDamage) {
+              e.tryTakeDamage(this.dps, 'burn', 'weapon_lantern', 180);
+            } else {
+              e.takeDamage(this.dps, 'burn');
+            }
           }
         }
       });
@@ -114,7 +122,7 @@ export class LightningStrike {
     enemies.forEach(e => {
       if (!e.isAlive) return;
       const dist = Phaser.Math.Distance.Between(this.x, this.y, e.sprite.x, e.sprite.y);
-      if (dist <= this.radius) { e.takeDamage(this.damage, 'lightning'); if (e.applyDebuff) e.applyDebuff('armor_weaken', 1); }
+  if (dist <= this.radius) { if (e.tryTakeDamage) { e.tryTakeDamage(this.damage, 'lightning', 'weapon_staff', 140); } else { e.takeDamage(this.damage, 'lightning'); } if (e.applyDebuff) e.applyDebuff('armor_weaken', 1); }
     });
     this._done = true;
   }
@@ -173,7 +181,7 @@ export class LightningFallStrike {
       if (!e.isAlive) return;
       const d = Phaser.Math.Distance.Between(this.x, this.y, e.sprite.x, e.sprite.y);
       if (d <= this.radius) {
-        e.takeDamage(this.damage, 'lightning');
+  if (e.tryTakeDamage) { e.tryTakeDamage(this.damage, 'lightning', 'weapon_staff', 140); } else { e.takeDamage(this.damage, 'lightning'); }
         if (e.applyDebuff) e.applyDebuff('armor_weaken', this.debuffPower);
       }
     });
@@ -227,7 +235,11 @@ export class OrbitingBlade {
         const last = this._perEnemyHitAt.get(e.id) || 0;
         if (now - last >= this._hitCooldown) {
           this._perEnemyHitAt.set(e.id, now);
-          e.takeDamage(this.damage, this.damageType || 'physical');
+          if (e.tryTakeDamage) {
+            e.tryTakeDamage(this.damage, this.damageType || 'physical', 'weapon_claymore', this._hitCooldown);
+          } else {
+            e.takeDamage(this.damage, this.damageType || 'physical');
+          }
           if (this.damageType && e.applyDebuff) e.applyDebuff(this.damageType, 1);
         }
       }

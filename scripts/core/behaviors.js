@@ -1,7 +1,7 @@
 import { BurnZone, FollowZone, LightningStrike, LightningFallStrike, OrbitingBlade } from './zones.js';
 
 // Helper: damage enemies in a line segment from (x,y) in angle dir with length L and width W
-function lineDamage(scene, player, enemies, x, y, angle, length, width, damage, damageType) {
+function lineDamage(scene, player, enemies, x, y, angle, length, width, damage, damageType, sourceKey = 'melee', invulnMs = 140) {
   const dx = Math.cos(angle), dy = Math.sin(angle);
   const endX = x + dx * length, endY = y + dy * length;
   const g = scene.add.graphics();
@@ -17,13 +17,17 @@ function lineDamage(scene, player, enemies, x, y, angle, length, width, damage, 
     const px = x + dx * length * t, py = y + dy * length * t;
     const dist = Phaser.Math.Distance.Between(e.sprite.x, e.sprite.y, px, py);
     if (dist <= width * 0.6) {
-      e.takeDamage(damage, damageType);
+      if (e.tryTakeDamage) {
+        e.tryTakeDamage(damage, damageType, sourceKey, invulnMs);
+      } else {
+        e.takeDamage(damage, damageType);
+      }
       if (damageType && e.applyDebuff) e.applyDebuff(damageType, 1 + (player?.debuffPower || 0));
     }
   });
 }
 
-function coneDamage(scene, player, enemies, x, y, angle, radius, arcRadians, damage, damageType) {
+function coneDamage(scene, player, enemies, x, y, angle, radius, arcRadians, damage, damageType, sourceKey = 'melee', invulnMs = 140) {
   const start = angle - arcRadians/2, end = angle + arcRadians/2;
   const g = scene.add.graphics();
   // Filled wedge for better readability
@@ -43,7 +47,11 @@ function coneDamage(scene, player, enemies, x, y, angle, radius, arcRadians, dam
     const dist = Phaser.Math.Distance.Between(x, y, e.sprite.x, e.sprite.y);
     const inArc = Phaser.Math.Angle.ShortestBetween(Phaser.Math.RadToDeg(angle), Phaser.Math.RadToDeg(ang));
     if (Math.abs(inArc) <= Phaser.Math.RadToDeg(arcRadians/2) && dist <= radius) {
-      e.takeDamage(damage, damageType);
+      if (e.tryTakeDamage) {
+        e.tryTakeDamage(damage, damageType, sourceKey, invulnMs);
+      } else {
+        e.takeDamage(damage, damageType);
+      }
       if (damageType && e.applyDebuff) e.applyDebuff(damageType, 1 + (player?.debuffPower || 0));
     }
   });
@@ -57,70 +65,63 @@ export function executeWeaponAttack(scene, player, weapon, target, enemies, proj
     : (player.lastFacingAngle || 0);
 
   switch (weapon.id) {
-    case 'weapon_longsword': { // Sword: thrust
-      const len = weapon.attackRange || 100;
-      lineDamage(scene, player, enemies, px, py, angle, len, 10, damage + player.baseDamage, weapon.damageType);
-      if (weapon.maxMode) { // giant thrust
-        lineDamage(scene, player, enemies, px, py, angle, len * 1.8, 18, Math.floor((damage + player.baseDamage) * 1.6), weapon.damageType);
+    case 'weapon_longsword': { // Broadsword: 180° swing around the player, about half of flail reach
+      const baseDam = damage + player.baseDamage;
+      // Use half of a typical flail reach; fall back to weapon.attackRange if present
+      const approxFlail = 75; // midpoint of flail reach (~65..85)
+      const radius = Math.max(38, Math.floor((weapon.attackRange || approxFlail) * 0.5));
+      const arc = Math.PI; // 180 degrees
+      // Single swing in facing direction
+      coneDamage(scene, player, enemies, px, py, angle, radius, arc, baseDam, weapon.damageType, 'weapon_longsword');
+      if (weapon.maxMode) {
+        // At max, follow up with a quick reverse sweep for coverage
+        scene.time.delayedCall(140, () => {
+          coneDamage(scene, player, enemies, px, py, angle + Math.PI, radius, arc, Math.floor(baseDam * 0.9), weapon.damageType, 'weapon_longsword');
+        });
       }
       return true;
     }
     case 'weapon_flail': {
-      // Heavy sweeping arcs; at max, perform a brief whirlwind of repeated sweeps
+      // Heavy sweeping arcs; size scales slightly with level, reaching just over player size at level 10.
       const baseDam = damage + player.baseDamage;
-      const radius = weapon.attackRange || 120;
-      const sweepArc = Math.PI * 1.2; // ~216 degrees
+      const lvl = weapon.level || (player.weaponLevels?.[weapon.id] || 1);
+      // Grow only on even levels: steps over levels 2,4,6,8,10 -> 5 steps
+      const steps = Math.max(0, Math.floor((Math.min(lvl, 10) - 1) / 2));
+      const progress = steps / 5; // 0..1 across 5 even-level steps
+      // Make flail smaller overall
+      const minLen = 50; // closer to player
+      const maxLen = 65; // modest growth at level 10
+      const radius = Math.floor(minLen + (maxLen - minLen) * progress);
+      const sweepArc = Math.PI * 0.95; // slightly under 180°
       // Two quick opposite-direction sweeps
-      coneDamage(scene, player, enemies, px, py, angle, radius, sweepArc, baseDam, weapon.damageType);
+      coneDamage(scene, player, enemies, px, py, angle, radius, sweepArc, baseDam, weapon.damageType, 'weapon_flail');
       scene.time.delayedCall(160, () => {
-        coneDamage(scene, player, enemies, px, py, angle + Math.PI, radius, sweepArc, Math.floor(baseDam*0.9), weapon.damageType);
+        coneDamage(scene, player, enemies, px, py, angle + Math.PI, radius, sweepArc, Math.floor(baseDam*0.9), weapon.damageType, 'weapon_flail');
       });
       if (weapon.maxMode) {
         // Whirlwind: pulse damage in a full circle for a short duration
         const pulses = 4; // total pulses across ~800ms
         for (let i = 0; i < pulses; i++) {
           scene.time.delayedCall(200 * i, () => {
-            coneDamage(scene, player, enemies, px, py, angle + (i * Math.PI/2), radius + 10, Math.PI * 2, Math.floor(baseDam * 0.7), weapon.damageType);
+            coneDamage(scene, player, enemies, px, py, angle + (i * Math.PI/2), radius + 10, Math.PI * 2, Math.floor(baseDam * 0.7), weapon.damageType, 'weapon_flail');
           });
         }
       }
       return true;
     }
     case 'weapon_crystalsword': {
-      // Lightning-aligned thrust with a chance to arc to nearby enemies; larger reach at max
-      const len = (weapon.attackRange || 85) * (weapon.maxMode ? 1.6 : 1.0);
-      const dam = Math.floor((damage + player.baseDamage) * (weapon.maxMode ? 1.2 : 1.0));
-      lineDamage(scene, player, enemies, px, py, angle, len, 12, dam, weapon.damageType);
-      // Simple chain: jump to up to 3 nearest additional targets around primary target if available
-      if (target && target.isAlive) {
-        // Collect nearby enemies within 120px of the target, excluding the target
-        const candidates = enemies
-          .filter(e => e.isAlive && e !== target)
-          .map(e => ({ e, d: Phaser.Math.Distance.Between(target.sprite.x, target.sprite.y, e.sprite.x, e.sprite.y) }))
-          .filter(ed => ed.d <= 120)
-          .sort((a, b) => a.d - b.d)
-          .slice(0, 3);
-        candidates.forEach((ed, idx) => {
-          const chainDmg = Math.max(1, Math.floor(dam * (0.7 - idx * 0.15)));
-          ed.e.takeDamage(chainDmg, weapon.damageType);
-          if (ed.e.applyDebuff) ed.e.applyDebuff('armor_weaken', 1);
-          // Optional quick visual: thin line, kept lightweight
-          const l = scene.add.line(0, 0, target.sprite.x, target.sprite.y, ed.e.sprite.x, ed.e.sprite.y, 0x99e0ff, 0.9);
-          l.setDepth(1300); l.setLineWidth(2);
-          scene.time.delayedCall(100, () => l.destroy());
-        });
-      }
+      // Swinging arc similar to a whip, with lightning damage flavor
+      const baseDam = Math.floor((damage + player.baseDamage) * (weapon.maxMode ? 1.15 : 1.0));
+      const radius = Math.floor((weapon.attackRange || 100) * (weapon.maxMode ? 1.1 : 1.0));
+      const arc = weapon.maxMode ? (Math.PI * 1.0) : (Math.PI * 0.8); // up to ~180° at max
+      coneDamage(scene, player, enemies, px, py, angle, radius, arc, baseDam, weapon.damageType, 'weapon_crystalsword');
       return true;
     }
     case 'weapon_whip': {
-      const len = (weapon.attackRange || 170);
-      if (weapon.maxMode) {
-        // Wider arc and slightly longer reach when maxed
-        coneDamage(scene, player, enemies, px, py, angle, Math.floor(len * 1.15), Math.PI * 0.7, damage + player.baseDamage, weapon.damageType);
-      } else {
-        // Thicker lash line for a wider hit
-        lineDamage(scene, player, enemies, px, py, angle, len, 16, damage + player.baseDamage, weapon.damageType);
-      }
+      // Make whip function as a swinging arc, similar to the crystal blade
+      const radius = (weapon.attackRange || 170);
+      const arc = weapon.maxMode ? (Math.PI * 1.0) : (Math.PI * 0.85); // ~153° base, up to 180° at max
+      coneDamage(scene, player, enemies, px, py, angle, radius, arc, damage + player.baseDamage, weapon.damageType, 'weapon_whip');
       return true;
     }
     case 'weapon_claymore': { // persistent orbiting blades
@@ -161,7 +162,11 @@ export function executeWeaponAttack(scene, player, weapon, target, enemies, proj
           const push = weapon.maxMode ? 120 : 60;
           e.sprite.x += Math.cos(ang) * push;
           e.sprite.y += Math.sin(ang) * push;
-          e.takeDamage(Math.floor((damage+player.baseDamage)*0.6), weapon.damageType);
+          if (e.tryTakeDamage) {
+            e.tryTakeDamage(Math.floor((damage+player.baseDamage)*0.6), weapon.damageType, 'weapon_shield');
+          } else {
+            e.takeDamage(Math.floor((damage+player.baseDamage)*0.6), weapon.damageType);
+          }
         }
       });
       // Max: brief impervious window to attacks
@@ -179,22 +184,9 @@ export function executeWeaponAttack(scene, player, weapon, target, enemies, proj
       }
       return true;
     }
-    case 'weapon_doubleaxe': { // Heavy cleaving swings around the player
-      const baseDam = damage + player.baseDamage;
-      const range = weapon.attackRange || 90;
-      const arc = Math.PI * 0.9; // ~162 degrees wide
-      // Two quick heavy cleaves: forward, then reverse
-      coneDamage(scene, player, enemies, px, py, angle, range, arc, Math.floor(baseDam * 1.1), weapon.damageType);
-      scene.time.delayedCall(140, () => {
-        coneDamage(scene, player, enemies, px, py, angle + Math.PI, Math.floor(range * 0.95), arc, Math.floor(baseDam * 1.0), weapon.damageType);
-      });
-      if (weapon.maxMode) {
-        // Max: finish with a brief 360° spin hit
-        scene.time.delayedCall(300, () => {
-          coneDamage(scene, player, enemies, px, py, angle, Math.floor(range * 1.1), Math.PI * 2, Math.floor(baseDam * 0.9), weapon.damageType);
-        });
-      }
-      return true;
+    case 'weapon_doubleaxe': {
+      // Now treated as a slow projectile; fall back to default projectile handling
+      return false;
     }
     case 'weapon_torch': {
       const radius = weapon.maxMode ? 140 : 70;
@@ -212,8 +204,8 @@ export function executeWeaponAttack(scene, player, weapon, target, enemies, proj
       return false; // fall back to default projectile path
     }
     case 'weapon_stone': {
-      // on hit, split handled in Projectile by weapon.special flag (set here)
-      weapon.special = 'stone_split';
+      // Only allow split at max level; at lower levels, it's a single-hit rock with no split
+      weapon.special = weapon.maxMode ? 'stone_split' : undefined;
       return false;
     }
     case 'weapon_staff': {
@@ -263,10 +255,10 @@ export function executeWeaponAttack(scene, player, weapon, target, enemies, proj
       const baseDam = damage + player.baseDamage;
       const len = weapon.attackRange || 60;
       const arc = Math.PI/3;
-      coneDamage(scene, player, enemies, px, py, angle, len, arc, baseDam, weapon.damageType);
+      coneDamage(scene, player, enemies, px, py, angle, len, arc, baseDam, weapon.damageType, 'weapon_claws');
       if (weapon.maxMode) {
-        coneDamage(scene, player, enemies, px, py, angle - Math.PI/2, len*1.2, arc*1.3, Math.floor(baseDam*1.1), weapon.damageType);
-        coneDamage(scene, player, enemies, px, py, angle + Math.PI/2, len*1.2, arc*1.3, Math.floor(baseDam*1.1), weapon.damageType);
+        coneDamage(scene, player, enemies, px, py, angle - Math.PI/2, len*1.2, arc*1.3, Math.floor(baseDam*1.1), weapon.damageType, 'weapon_claws');
+        coneDamage(scene, player, enemies, px, py, angle + Math.PI/2, len*1.2, arc*1.3, Math.floor(baseDam*1.1), weapon.damageType, 'weapon_claws');
       }
       return true;
     }

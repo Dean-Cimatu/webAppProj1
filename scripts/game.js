@@ -10,6 +10,8 @@ import { BurnZone } from './core/zones.js';
 const DEBUG = false;
 // Controls whether to show wave banners; disabled per request
 const SHOW_WAVE_BANNER = false;
+// Minimum time a wave must last before advancing (5 minutes)
+const MIN_WAVE_DURATION_MS = 300000;
 
 const config = {
     type: Phaser.AUTO,
@@ -110,6 +112,15 @@ class Projectile {
         if ((this.weapon && (this.weapon.id === 'weapon_dagger' || this.weapon.name === 'Swift Dagger')) || key === 'weapon_dagger') {
             this.rotationOffset = -Math.PI / 4;
         }
+        // Double Axe spins during flight
+        if (this.weapon && this.weapon.id === 'weapon_doubleaxe') {
+            this.spinSprite = true;
+            this.spinSpeed = 8.0; // radians per second
+            // Center origin for clean spin
+            this.sprite.setOrigin(0.5, 0.5);
+            // Start with some rotation to feel dynamic
+            this._spinAngle = 0;
+        }
         this.sprite.setRotation(this.angle + (this.rotationOffset || 0));
     }
     animateFireball() {
@@ -168,13 +179,20 @@ class Projectile {
                 return; // prevent collision checks after sprite is destroyed
             }
         }
-        // Keep rotation aligned (account for sprite lean correction)
+        // Keep rotation aligned, except for spinning projectiles like Double Axe
         if (this.sprite) {
-            this.sprite.setRotation(this.angle + (this.rotationOffset || 0));
+            if (this.spinSprite) {
+                this._spinAngle = (this._spinAngle || 0) + (this.spinSpeed || 0) * dt;
+                this.sprite.setRotation(this._spinAngle);
+            } else {
+                this.sprite.setRotation(this.angle + (this.rotationOffset || 0));
+            }
         }
-        // Throttle collision checks to every other frame to reduce CPU
+        // Collision checks: always check for dagger and stone to ensure all hits register; others throttle every other frame
         this._tickCounter = (this._tickCounter || 0) + 1;
-        if ((this._tickCounter & 1) === 0) {
+        const isDagger = !!(this.weapon && (this.weapon.id === 'weapon_dagger' || this.weapon.name === 'Swift Dagger'));
+        const isStone = !!(this.weapon && this.weapon.id === 'weapon_stone');
+        if (isDagger || isStone || ((this._tickCounter & 1) === 0)) {
             this.checkEnemyCollision();
         }
     }
@@ -190,10 +208,16 @@ class Projectile {
                 );
                 // Collision radius scales with projectile visual size so large projectiles register reliably
                 const spriteW = (this.sprite && (this.sprite.displayWidth || this.sprite.width)) || 24;
-                const dynamicRadius = Math.max(18, Math.floor(14 + spriteW * 0.22));
+                let dynamicRadius = Math.max(18, Math.floor(14 + spriteW * 0.22));
+                // Ensure small, fast projectiles like dagger and stone still register hits consistently
+                if (this.weapon && (this.weapon.id === 'weapon_dagger' || this.weapon.id === 'weapon_stone')) {
+                    dynamicRadius = Math.max(dynamicRadius, 24);
+                }
                 if (distance < dynamicRadius) {
                     this.hitTargets.add(enemy.id);
-                    enemy.takeDamage(this.damage, this.weapon?.damageType);
+                    // Use per-weapon invulnerability so different weapons can stack damage properly
+                    const sourceKey = (this.weapon && this.weapon.id) ? this.weapon.id : 'projectile';
+                    enemy.tryTakeDamage(this.damage, this.weapon?.damageType, sourceKey, 140);
                     // Rose max: poison AOE around hit target
                     if (this.weapon && this.weapon.special === 'rose_poison_aoe') {
                         enemies.forEach(e => {
@@ -545,7 +569,7 @@ class Player extends Entity {
         this.xpText.setOrigin(0.5);
         this.xpText.setScrollFactor(0);
         this.xpText.setDepth(1002);
-        this.scene.time.addEvent({
+        this._timerEvent = this.scene.time.addEvent({
             delay: 1000,
             callback: () => {
                 this.scene.gameTimer++;
@@ -709,16 +733,8 @@ class Player extends Entity {
             baseAttackSpeed: weapon.attackSpeed || 1000,
             instanceDamage: baseDamage
         };
-        // Special-case: Stone starts at max level
-        if (weaponId === 'weapon_stone') {
-            weaponInstance.level = this.maxWeaponLevel;
-            this.weaponLevels[weaponId] = this.maxWeaponLevel;
-            // Scale damage to mimic max-level base scaling
-            weaponInstance.instanceDamage = Math.max(1, Math.floor(weaponInstance.baseDamage * (1 + 0.10 * (this.maxWeaponLevel - 1))));
-            this.applyMaxWeaponBehavior(weaponInstance);
-        } else {
-            this.weaponLevels[weaponId] = 1;
-        }
+        // Normal starting level for all weapons (including Stone)
+        this.weaponLevels[weaponId] = 1;
         this.weapons.push(weaponInstance);
         // Initialize per-weapon state
         this.weaponAttackState.set(weaponId, { lastAttackTime: -99999 });
@@ -1853,6 +1869,11 @@ class Player extends Entity {
         if (this.isDying) return;
         this.isDying = true;
         this.isAlive = false;
+        // Stop the game timer when the player dies
+        if (this._timerEvent && this._timerEvent.remove) {
+            try { this._timerEvent.remove(false); } catch (e) {}
+            this._timerEvent = null;
+        }
         this.sprite.setVelocity(0, 0);
         this.sprite.clearTint();
         this.playDeathAnimation();
@@ -2065,6 +2086,7 @@ let currentEnemyCount = 0;
 let currentWave = 1;
 let waveMultiplier = 1; // 2^(currentWave-1)
 window.waveMultiplier = waveMultiplier;
+let waveStartAtMs = Date.now();
 const CHUNK_SIZE = 32;
 const TILE_SIZE = 48;
 const RENDER_DISTANCE = 2;
@@ -2365,35 +2387,21 @@ function createEffectAnimations() {
     });
 }
 function startIntroSequence() {
-    // Simple intro banner
+    // Skip story banner; show only the weapon choice immediately with a subtle overlay
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
     const overlay = this.add.rectangle(this.cameras.main.centerX, this.cameras.main.centerY, width, height, 0x000000, 0.6);
     overlay.setScrollFactor(0);
     overlay.setDepth(1800);
-    const title = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY - 60, 'Chariot Race to the Colosseum', {
-        fontSize: '36px', fill: '#ffffff', fontStyle: 'bold'
-    });
-    title.setOrigin(0.5);
-    title.setScrollFactor(0);
-    title.setDepth(1801);
-    const subtitle = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY, 'A sudden crash... choose your weapon!', {
-        fontSize: '20px', fill: '#dddddd'
-    });
-    subtitle.setOrigin(0.5);
-    subtitle.setScrollFactor(0);
-    subtitle.setDepth(1801);
-    // After a short delay, open weapon choice
-    this.time.delayedCall(1200, () => {
-        if (title && title.destroy) title.destroy();
-        if (subtitle && subtitle.destroy) subtitle.destroy();
-        player.showInitialWeaponChoice(() => {
-            // On selection complete
-            if (overlay && overlay.destroy) overlay.destroy();
-            GAME_STATE = 'playing';
-            spawnEnemies.call(this);
-            startDifficultyProgression.call(this);
-        });
+    // Open weapon choice immediately
+    player.showInitialWeaponChoice(() => {
+        // On selection complete
+        if (overlay && overlay.destroy) overlay.destroy();
+        GAME_STATE = 'playing';
+        // Mark the start of the wave for duration gating
+        waveStartAtMs = Date.now();
+        spawnEnemies.call(this);
+        startDifficultyProgression.call(this);
     });
 }
 function getDifficultyLevel() {
@@ -2415,12 +2423,15 @@ function updateDifficulty() {
     // Progress wave when player difficulty "strength" exceeds current wave strength
     const diffStrength = Math.pow(2, Math.max(0, currentDifficulty - 1));
     const waveStrength = waveMultiplier; // 1, 2, 4, 8, ...
-    if (diffStrength > waveStrength) {
+    const nowMs = (player?.scene?.time?.now) || Date.now();
+    const elapsedSinceWaveStart = nowMs - (waveStartAtMs || nowMs);
+    if (diffStrength > waveStrength && elapsedSinceWaveStart >= MIN_WAVE_DURATION_MS) {
         // Advance to next wave
         const previousWave = currentWave;
         currentWave += 1;
         waveMultiplier = Math.pow(2, currentWave - 1);
         window.waveMultiplier = waveMultiplier;
+        waveStartAtMs = nowMs;
         // Optional: brief wave banner (disabled by SHOW_WAVE_BANNER)
         if (SHOW_WAVE_BANNER) {
             const scene = player?.scene;

@@ -15,7 +15,7 @@ export class Enemy {
     this.sprite = scene.physics.add.sprite(x, y, enemyData.sprite);
     this.sprite.setDepth(1);
     this.sprite.name = this.id;
-  const difficultyMultiplier = 1 + ((difficulty - 1) * 0.15);
+  const difficultyMultiplier = 1 + ((difficulty - 1) * 0.20);
     const waveMult = (window.waveMultiplier || 1);
     const baseScale = 1.0;
     const densityFactor = (enemyData.health + enemyData.size) / 100;
@@ -25,7 +25,7 @@ export class Enemy {
     this.sprite.setDisplaySize(scaledSize, scaledSize);
     const sizeSpeedModifier = Math.max(0.5, 1 - (enemyData.size - 24) / 200);
     const randomSpeedVariation = 0.8 + Math.random() * 0.4;
-  const speedDifficultyBonus = 1 + ((difficulty - 1) * 0.05);
+  const speedDifficultyBonus = 1 + ((difficulty - 1) * 0.06);
     const globalEnemySpeedBonus = 0; // will be additive if game sets it
     this.speed = ((enemyData.baseSpeed * sizeSpeedModifier * randomSpeedVariation * speedDifficultyBonus) + globalEnemySpeedBonus) * 0.7;
   this.health = Math.floor(enemyData.health * difficultyMultiplier * waveMult);
@@ -47,11 +47,25 @@ export class Enemy {
     this.hurtboxRadius = Math.max(25, scaledSize * 0.45);
     this.shadow.setSize(shadowSize, shadowSize * 0.5);
     this.isAlive = true;
+  // Per-weapon/source invulnerability timers: enemy can be hit by the same weapon only after a short cooldown,
+  // but different weapons can still deal damage in the same timeframe.
+  this._invulnBySource = new Map(); // key: weaponId or source key, value: last hit timestamp (ms)
     this.createHPBar();
     if (enemyData.animated) {
       this.createAnimations();
       this.sprite.play(`${enemyType}_walk`);
     }
+  }
+  // Attempt to apply damage with per-weapon/source invulnerability timers
+  tryTakeDamage(damage, damageType, sourceKey = 'generic', invulnMs = 140) {
+    const now = this.scene?.time?.now || Date.now();
+    const last = this._invulnBySource.get(sourceKey) || 0;
+    if ((now - last) < invulnMs) {
+      return false;
+    }
+    this._invulnBySource.set(sourceKey, now);
+    this.takeDamage(damage, damageType);
+    return true;
   }
   createHPBar() {
     this.hpBarBg = this.scene.add.rectangle(0, -40, 50, 6, 0x000000);

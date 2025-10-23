@@ -70,6 +70,20 @@ class AuthHelper {
             return { success: false, message: 'Password must be at least 6 characters long.' };
         }
 
+        // Age validation: require DOB and ensure at least 13 years old
+        if (!dateOfBirth) {
+            return { success: false, message: 'Date of birth is required.' };
+        }
+        const dobDate = new Date(dateOfBirth);
+        if (isNaN(dobDate.getTime())) {
+            return { success: false, message: 'Please enter a valid date of birth.' };
+        }
+        const today = new Date();
+        const threshold = new Date(today.getFullYear() - 13, today.getMonth(), today.getDate());
+        if (dobDate > threshold) {
+            return { success: false, message: 'You must be at least 13 years old to register.' };
+        }
+
         const newUser = {
             id: Date.now(),
             username: username.trim(),
@@ -163,6 +177,11 @@ class AuthHelper {
 }
 
 const auth = new AuthHelper();
+// Expose to browser global so module scripts (e.g., game.js) can call window.auth
+if (typeof window !== 'undefined') {
+    window.auth = auth;
+}
+// Support CommonJS export for testing or bundlers
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = AuthHelper;
 }
