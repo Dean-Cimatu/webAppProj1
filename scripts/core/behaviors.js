@@ -26,10 +26,17 @@ function lineDamage(scene, player, enemies, x, y, angle, length, width, damage, 
 function coneDamage(scene, player, enemies, x, y, angle, radius, arcRadians, damage, damageType) {
   const start = angle - arcRadians/2, end = angle + arcRadians/2;
   const g = scene.add.graphics();
-  g.lineStyle(10, 0xffd700, 0.5);
-  g.beginPath(); g.arc(x, y, radius, start, end); g.strokePath();
+  // Filled wedge for better readability
+  g.fillStyle(0xffd700, 0.18);
+  g.lineStyle(8, 0xffd700, 0.5);
+  g.beginPath();
+  g.moveTo(x, y);
+  g.arc(x, y, radius, start, end);
+  g.closePath();
+  g.fillPath();
+  g.strokePath();
   g.setDepth(90);
-  scene.tweens.add({ targets: g, alpha: 0, duration: 180, onComplete: () => g.destroy() });
+  scene.tweens.add({ targets: g, alpha: 0, duration: 260, onComplete: () => g.destroy() });
   enemies.forEach(e => {
     if (!e.isAlive) return;
     const ang = Phaser.Math.Angle.Between(x, y, e.sprite.x, e.sprite.y);
@@ -58,12 +65,61 @@ export function executeWeaponAttack(scene, player, weapon, target, enemies, proj
       }
       return true;
     }
-    case 'weapon_whip': {
-      const len = (weapon.attackRange || 130);
+    case 'weapon_flail': {
+      // Heavy sweeping arcs; at max, perform a brief whirlwind of repeated sweeps
+      const baseDam = damage + player.baseDamage;
+      const radius = weapon.attackRange || 120;
+      const sweepArc = Math.PI * 1.2; // ~216 degrees
+      // Two quick opposite-direction sweeps
+      coneDamage(scene, player, enemies, px, py, angle, radius, sweepArc, baseDam, weapon.damageType);
+      scene.time.delayedCall(160, () => {
+        coneDamage(scene, player, enemies, px, py, angle + Math.PI, radius, sweepArc, Math.floor(baseDam*0.9), weapon.damageType);
+      });
       if (weapon.maxMode) {
-        coneDamage(scene, player, enemies, px, py, angle, len, Math.PI/2, damage + player.baseDamage, weapon.damageType);
+        // Whirlwind: pulse damage in a full circle for a short duration
+        const pulses = 4; // total pulses across ~800ms
+        for (let i = 0; i < pulses; i++) {
+          scene.time.delayedCall(200 * i, () => {
+            coneDamage(scene, player, enemies, px, py, angle + (i * Math.PI/2), radius + 10, Math.PI * 2, Math.floor(baseDam * 0.7), weapon.damageType);
+          });
+        }
+      }
+      return true;
+    }
+    case 'weapon_crystalsword': {
+      // Lightning-aligned thrust with a chance to arc to nearby enemies; larger reach at max
+      const len = (weapon.attackRange || 85) * (weapon.maxMode ? 1.6 : 1.0);
+      const dam = Math.floor((damage + player.baseDamage) * (weapon.maxMode ? 1.2 : 1.0));
+      lineDamage(scene, player, enemies, px, py, angle, len, 12, dam, weapon.damageType);
+      // Simple chain: jump to up to 3 nearest additional targets around primary target if available
+      if (target && target.isAlive) {
+        // Collect nearby enemies within 120px of the target, excluding the target
+        const candidates = enemies
+          .filter(e => e.isAlive && e !== target)
+          .map(e => ({ e, d: Phaser.Math.Distance.Between(target.sprite.x, target.sprite.y, e.sprite.x, e.sprite.y) }))
+          .filter(ed => ed.d <= 120)
+          .sort((a, b) => a.d - b.d)
+          .slice(0, 3);
+        candidates.forEach((ed, idx) => {
+          const chainDmg = Math.max(1, Math.floor(dam * (0.7 - idx * 0.15)));
+          ed.e.takeDamage(chainDmg, weapon.damageType);
+          if (ed.e.applyDebuff) ed.e.applyDebuff('armor_weaken', 1);
+          // Optional quick visual: thin line, kept lightweight
+          const l = scene.add.line(0, 0, target.sprite.x, target.sprite.y, ed.e.sprite.x, ed.e.sprite.y, 0x99e0ff, 0.9);
+          l.setDepth(1300); l.setLineWidth(2);
+          scene.time.delayedCall(100, () => l.destroy());
+        });
+      }
+      return true;
+    }
+    case 'weapon_whip': {
+      const len = (weapon.attackRange || 170);
+      if (weapon.maxMode) {
+        // Wider arc and slightly longer reach when maxed
+        coneDamage(scene, player, enemies, px, py, angle, Math.floor(len * 1.15), Math.PI * 0.7, damage + player.baseDamage, weapon.damageType);
       } else {
-        lineDamage(scene, player, enemies, px, py, angle, len, 8, damage + player.baseDamage, weapon.damageType);
+        // Thicker lash line for a wider hit
+        lineDamage(scene, player, enemies, px, py, angle, len, 16, damage + player.baseDamage, weapon.damageType);
       }
       return true;
     }
@@ -113,43 +169,30 @@ export function executeWeaponAttack(scene, player, weapon, target, enemies, proj
         const now = player.scene.time.now || Date.now();
         player.imperviousUntil = Math.max(player.imperviousUntil || 0, now + 1200);
         // Optional visual cue
-        if (player.sprite && player.sprite.setTintFill) {
-          player.sprite.setTintFill(0x88ccff);
-          player.scene.time.delayedCall(200, () => { if (player.isAlive) player.sprite.clearTint(); });
+        if (player.sprite) {
+          const fx = player.scene.add.sprite(player.sprite.x, player.sprite.y, 'BlockFlash_0');
+          fx.setDepth(1400);
+          fx.setScale(1.1);
+          fx.play('block_flash_anim');
+          fx.once('animationcomplete', () => fx.destroy());
         }
       }
       return true;
     }
-    case 'weapon_doubleaxe': { // Axe throw upwards with total damage pool
-      const tx = px; const ty = py - (weapon.attackRange || 150);
-      const proj = {
-        isAlive: true,
-        remainingDamage: (damage + player.baseDamage) * 3,
-        sprite: scene.add.sprite(px, py, 'weapon_doubleaxe'),
-        update() {
-          if (!this.isAlive) return;
-          // move upward
-          this.sprite.y -= (weapon.projectileSpeed||250) * (scene.game.loop.delta/1000);
-          enemies.forEach(e => {
-            if (!this.isAlive || !e.isAlive) return;
-            const d = Phaser.Math.Distance.Between(this.sprite.x, this.sprite.y, e.sprite.x, e.sprite.y);
-            if (d < 30) {
-              const hit = Math.min(this.remainingDamage, Math.floor((damage+player.baseDamage)*0.8));
-              e.takeDamage(hit, weapon.damageType);
-              this.remainingDamage -= hit;
-              if (this.remainingDamage <= 0) this.destroy();
-            }
-          });
-          if (this.sprite.y <= ty) this.destroy();
-        },
-        destroy() { if (this.isAlive) { this.isAlive = false; this.sprite.destroy(); } }
-      };
-      projectiles.push(proj);
+    case 'weapon_doubleaxe': { // Heavy cleaving swings around the player
+      const baseDam = damage + player.baseDamage;
+      const range = weapon.attackRange || 90;
+      const arc = Math.PI * 0.9; // ~162 degrees wide
+      // Two quick heavy cleaves: forward, then reverse
+      coneDamage(scene, player, enemies, px, py, angle, range, arc, Math.floor(baseDam * 1.1), weapon.damageType);
+      scene.time.delayedCall(140, () => {
+        coneDamage(scene, player, enemies, px, py, angle + Math.PI, Math.floor(range * 0.95), arc, Math.floor(baseDam * 1.0), weapon.damageType);
+      });
       if (weapon.maxMode) {
-        // spin around player minor aoe
-        const spin = scene.add.graphics(); spin.lineStyle(8, 0xffffff, 0.3); spin.strokeCircle(px, py, 90);
-  enemies.forEach(e => { if (Phaser.Math.Distance.Between(px, py, e.sprite.x, e.sprite.y) <= 90) e.takeDamage(Math.floor((damage+player.baseDamage)*0.5), weapon.damageType); });
-        scene.tweens.add({ targets: spin, alpha: 0, duration: 200, onComplete: () => spin.destroy() });
+        // Max: finish with a brief 360° spin hit
+        scene.time.delayedCall(300, () => {
+          coneDamage(scene, player, enemies, px, py, angle, Math.floor(range * 1.1), Math.PI * 2, Math.floor(baseDam * 0.9), weapon.damageType);
+        });
       }
       return true;
     }

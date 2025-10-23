@@ -1,9 +1,15 @@
 import { DAMAGE_TYPES, WEAPON_TYPES } from './data/weapons.js';
 import { ITEM_TYPES, ENHANCED_ITEM_TYPES } from './data/items.js';
+import { ENEMY_TYPES } from './data/enemies.js';
+import { Enemy } from './core/enemy.js';
+import { getRandomEnemyType as wavesGetRandomEnemyType, spawnSingleEnemy as wavesSpawnSingleEnemy, spawnEnemies as wavesSpawnEnemies, maintainEnemyLimit as wavesMaintainEnemyLimit, startDifficultyProgression as wavesStartDifficulty } from './core/waves.js';
 import { executeWeaponAttack } from './core/behaviors.js';
+import { DebugOverlay } from './core/debugOverlay.js';
 import { BurnZone } from './core/zones.js';
 
 const DEBUG = false;
+// Controls whether to show wave banners; disabled per request
+const SHOW_WAVE_BANNER = false;
 
 const config = {
     type: Phaser.AUTO,
@@ -33,34 +39,6 @@ const config = {
 
 // Simple game state to orchestrate intro/choice/play
 let GAME_STATE = 'intro'; // 'intro' | 'choice' | 'playing'
-const ENEMY_TYPES = {
-    'slime': { sprite: 'slime', size: 32, health: 40, damage: 8, baseSpeed: 90 },
-    'bat': { sprite: 'bat', size: 28, health: 30, damage: 6, baseSpeed: 95 },
-    'spider': { sprite: 'spider', size: 24, health: 25, damage: 5, baseSpeed: 100 },
-    'snake': { sprite: 'snake', size: 40, health: 50, damage: 10, baseSpeed: 85 },
-    'worm': { sprite: 'worm', size: 36, health: 45, damage: 7, baseSpeed: 88 },
-    'lereon_knight': { sprite: 'lereon_knight', size: 64, health: 100, damage: 15, baseSpeed: 75 },
-    'wolf': { sprite: 'wolf', size: 48, health: 70, damage: 12, baseSpeed: 80 },
-    'skeleton_sword': { sprite: 'skeleton_sword', size: 52, health: 75, damage: 13, baseSpeed: 82 },
-    'orc': { sprite: 'orc', size: 56, health: 85, damage: 14, baseSpeed: 78 },
-    'burning_demon_imp': { sprite: 'burning_demon_imp', size: 44, health: 60, damage: 11, baseSpeed: 83 },
-    'skeleton_sword_animated': {
-        sprite: 'skeleton_sword_walk_1', size: 54, health: 80, damage: 14, baseSpeed: 80, animated: true,
-        animations: { walk: 'skeleton_sword_walk', attack: 'skeleton_sword_attack' }
-    },
-    'werewolf': { sprite: 'werewolf', size: 60, health: 90, damage: 16, baseSpeed: 76 },
-    'viking_warrior': { sprite: 'viking_warrior', size: 68, health: 110, damage: 18, baseSpeed: 73 },
-    'baby_dragon': { sprite: 'baby_dragon', size: 72, health: 120, damage: 20, baseSpeed: 70 },
-    'big_skeleton': { sprite: 'big_skeleton', size: 80, health: 150, damage: 25, baseSpeed: 65 },
-    'demon_axe_red': {
-        sprite: 'demon_axe_walk_1', size: 68, health: 110, damage: 22, baseSpeed: 74, animated: true,
-        animations: { walk: 'demon_axe_walk', attack: 'demon_axe_attack' }
-    },
-    'burning_demon': { sprite: 'burning_demon', size: 84, health: 160, damage: 28, baseSpeed: 62 },
-    'skeleton_king': { sprite: 'skeleton_king', size: 88, health: 180, damage: 30, baseSpeed: 60 },
-    'death_angel': { sprite: 'death_angel', size: 92, health: 200, damage: 35, baseSpeed: 55 },
-    'legendary_dragon': { sprite: 'legendary_dragon', size: 120, health: 300, damage: 50, baseSpeed: 45 }
-};
 // WEAPON_TYPES imported from data/weapons.js
 // ITEM_TYPES and ENHANCED_ITEM_TYPES imported from data/items.js
 class Projectile {
@@ -75,10 +53,11 @@ class Projectile {
         this.speed = (weapon && weapon.projectileSpeed) ? weapon.projectileSpeed : 300;
         this.isAlive = true;
         this.hitTargets = new Set();
-        this.createProjectileSprite();
         this.angle = Phaser.Math.Angle.Between(x, y, targetX, targetY);
         this.velocityX = Math.cos(this.angle) * this.speed;
         this.velocityY = Math.sin(this.angle) * this.speed;
+        this.rotationOffset = 0;
+        this.createProjectileSprite();
     }
     createProjectileSprite() {
         // Prefer an explicit projectile sprite when provided
@@ -116,13 +95,22 @@ class Projectile {
         }
         // Unify fireball sizes: use a common base scale, only modified by player's item buffs
         const key = usedKey || (this.sprite && this.sprite.texture && this.sprite.texture.key) || '';
+        const sizeBuff = (typeof player !== 'undefined' && player && player.weaponSizeScale) ? player.weaponSizeScale : 1.0;
         if (key.startsWith('fireball')) {
             const BASE_FIREBALL_SCALE = 0.12;
-            const sizeBuff = (typeof player !== 'undefined' && player && player.weaponSizeScale) ? player.weaponSizeScale : 1.0;
             this.sprite.setScale(BASE_FIREBALL_SCALE * sizeBuff);
         }
+        // Allow explicit projectile scaling from weapon data (e.g., dagger). For fireballs, include sizeBuff.
+        if (this.weapon && typeof this.weapon.projectileScale === 'number') {
+            const scale = key.startsWith('fireball') ? (this.weapon.projectileScale * sizeBuff) : this.weapon.projectileScale;
+            this.sprite.setScale(scale);
+        }
         this.sprite.setDepth(50);
-        this.sprite.setRotation(this.angle);
+        // Correct dagger sprite lean by rotating -45 degrees
+        if ((this.weapon && (this.weapon.id === 'weapon_dagger' || this.weapon.name === 'Swift Dagger')) || key === 'weapon_dagger') {
+            this.rotationOffset = -Math.PI / 4;
+        }
+        this.sprite.setRotation(this.angle + (this.rotationOffset || 0));
     }
     animateFireball() {
         let frame = 1;
@@ -162,15 +150,27 @@ class Projectile {
         }
         this.sprite.x += this.velocityX * dt;
         this.sprite.y += this.velocityY * dt;
-        const distanceToTarget = Phaser.Math.Distance.Between(
-            this.sprite.x, this.sprite.y, this.targetX, this.targetY
-        );
-        const distanceTraveled = Phaser.Math.Distance.Between(
-            this.sprite.x, this.sprite.y, this.startX, this.startY
-        );
-        if (distanceToTarget < 30 || distanceTraveled > this.weapon.attackRange) {
-            this.explode();
-            return; // prevent collision checks after sprite is destroyed
+        const distanceToTarget = Phaser.Math.Distance.Between(this.sprite.x, this.sprite.y, this.targetX, this.targetY);
+        const distanceTraveled = Phaser.Math.Distance.Between(this.sprite.x, this.sprite.y, this.startX, this.startY);
+        if (this.weapon && this.weapon.travelToEdge) {
+            const cam = this.scene.cameras.main;
+            const offLeft = this.sprite.x < (cam.scrollX - 60);
+            const offRight = this.sprite.x > (cam.scrollX + cam.width + 60);
+            const offTop = this.sprite.y < (cam.scrollY - 60);
+            const offBottom = this.sprite.y > (cam.scrollY + cam.height + 60);
+            if (offLeft || offRight || offTop || offBottom) {
+                this.explode();
+                return;
+            }
+        } else {
+            if (distanceToTarget < 30 || distanceTraveled > this.weapon.attackRange) {
+                this.explode();
+                return; // prevent collision checks after sprite is destroyed
+            }
+        }
+        // Keep rotation aligned (account for sprite lean correction)
+        if (this.sprite) {
+            this.sprite.setRotation(this.angle + (this.rotationOffset || 0));
         }
         // Throttle collision checks to every other frame to reduce CPU
         this._tickCounter = (this._tickCounter || 0) + 1;
@@ -188,7 +188,10 @@ class Projectile {
                     this.sprite.x, this.sprite.y,
                     enemy.sprite.x, enemy.sprite.y
                 );
-                if (distance < 25) {
+                // Collision radius scales with projectile visual size so large projectiles register reliably
+                const spriteW = (this.sprite && (this.sprite.displayWidth || this.sprite.width)) || 24;
+                const dynamicRadius = Math.max(18, Math.floor(14 + spriteW * 0.22));
+                if (distance < dynamicRadius) {
                     this.hitTargets.add(enemy.id);
                     enemy.takeDamage(this.damage, this.weapon?.damageType);
                     // Rose max: poison AOE around hit target
@@ -577,21 +580,6 @@ class Player extends Entity {
             slot.setScrollFactor(0);
             slot.setDepth(1001);
             slot.setVisible(false);
-            // Make slots clickable to switch weapons
-            slot.setInteractive({ useHandCursor: true });
-            bg.setInteractive({ useHandCursor: true });
-            // Capture index for handler
-            const index = i;
-            const selectAtIndex = () => {
-                if (!this.weapons || index >= this.weapons.length) return;
-                const selectedWeapon = this.weapons[index];
-                if (selectedWeapon && selectedWeapon !== this.currentWeapon) {
-                    this.currentWeapon = selectedWeapon;
-                    this.updateInventoryUI();
-                }
-            };
-            slot.on('pointerdown', selectAtIndex);
-            bg.on('pointerdown', selectAtIndex);
             this.inventorySlots.push(slot);
 
             // Level indicator at bottom-right of the slot
@@ -620,20 +608,20 @@ class Player extends Entity {
             
             if (i < this.weapons.length) {
                 const weapon = this.weapons[i];
-                const isActive = weapon === this.currentWeapon;
                 
                 slot.setTexture(weapon.sprite);
                 slot.setVisible(true);
                 slot.setDisplaySize(24, 24);
                 
-                bg.setFillStyle(isActive ? 0x00AA00 : 0x444444);
-                bg.setStrokeStyle(2, isActive ? 0x00FF00 : 0x888888);
+                // Neutral styling (no green highlight for the first/active item)
+                bg.setFillStyle(0x444444);
+                bg.setStrokeStyle(2, 0x888888);
 
                 const wId = weapon.id || weapon.name;
                 const wLevel = this.weaponLevels[wId] || weapon.level || 1;
                 lvlText.setText(`Lv ${wLevel}`);
                 lvlText.setVisible(true);
-                lvlText.setColor(isActive ? '#00ff88' : '#ffffff');
+                lvlText.setColor('#ffffff');
             } else {
                 slot.setVisible(false);
                 bg.setFillStyle(0x222222);
@@ -695,8 +683,8 @@ class Player extends Entity {
             const nextLevel = currentLevel + 1;
             this.weaponLevels[weaponId] = nextLevel;
             existing.level = nextLevel;
-            // Scale stats per level
-            this.scaleWeaponStats(existing);
+            // Custom upgrade path: only one stat per level, and duplicates every second level (even levels)
+            this.upgradeWeaponCustom(existing, nextLevel);
             // Apply max behavior when hitting level 10
             if (nextLevel >= this.maxWeaponLevel) {
                 this.applyMaxWeaponBehavior(existing);
@@ -721,7 +709,16 @@ class Player extends Entity {
             baseAttackSpeed: weapon.attackSpeed || 1000,
             instanceDamage: baseDamage
         };
-        this.weaponLevels[weaponId] = 1;
+        // Special-case: Stone starts at max level
+        if (weaponId === 'weapon_stone') {
+            weaponInstance.level = this.maxWeaponLevel;
+            this.weaponLevels[weaponId] = this.maxWeaponLevel;
+            // Scale damage to mimic max-level base scaling
+            weaponInstance.instanceDamage = Math.max(1, Math.floor(weaponInstance.baseDamage * (1 + 0.10 * (this.maxWeaponLevel - 1))));
+            this.applyMaxWeaponBehavior(weaponInstance);
+        } else {
+            this.weaponLevels[weaponId] = 1;
+        }
         this.weapons.push(weaponInstance);
         // Initialize per-weapon state
         this.weaponAttackState.set(weaponId, { lastAttackTime: -99999 });
@@ -732,6 +729,47 @@ class Player extends Entity {
         this.applyWeaponEffects(weaponInstance);
         // Always refresh inventory so the new slot appears immediately
         this.updateInventoryUI();
+    }
+
+    // Upgrade logic that honors: only one stat per level, and duplicate shots/blades every second level
+    upgradeWeaponCustom(weaponInstance, level) {
+        const isProjectile = !!weaponInstance.projectile;
+        // Even levels: add a duplicate effect
+        if (level % 2 === 0) {
+            if (isProjectile) {
+                // Add one extra shot from a different degree
+                weaponInstance.spreadShots = (weaponInstance.spreadShots || 1) + 1;
+                // Ensure there is at least some spread to fan the shots
+                weaponInstance.spreadAngleDeg = Math.max(weaponInstance.spreadAngleDeg || 0, 20);
+            } else if ((weaponInstance.id || weaponInstance.name) === 'weapon_claymore') {
+                // Claymore blade count is derived from level in behaviors; nothing to set here
+            } else {
+                // For other melee, increase attack arc/range slightly to simulate a wider sweep
+                weaponInstance.attackRange = Math.floor((weaponInstance.attackRange || weaponInstance.baseAttackRange || 80) * 1.06);
+            }
+            return;
+        }
+        // Odd levels: rotate a single stat buff among size, damage, and attack speed
+        const seq = ['size', 'damage', 'attackSpeed'];
+        const idx = Math.floor((level - 1) / 2) % seq.length; // 1->0,3->1,5->2,7->0,9->1
+        const stat = seq[idx];
+        if (stat === 'size') {
+            if (isProjectile) {
+                weaponInstance.projectileScale = (weaponInstance.projectileScale || 1.0) * 1.08;
+            } else {
+                weaponInstance.attackRange = Math.floor((weaponInstance.attackRange || weaponInstance.baseAttackRange || 80) * 1.08);
+            }
+        } else if (stat === 'damage') {
+            weaponInstance.instanceDamage = Math.max(1, Math.floor((weaponInstance.instanceDamage || weaponInstance.baseDamage || 5) * 1.12));
+        } else if (stat === 'attackSpeed') {
+            if (isProjectile) {
+                const base = weaponInstance.attackSpeed || weaponInstance.baseAttackSpeed || 1000;
+                weaponInstance.attackSpeed = Math.max(200, Math.floor(base * 0.92));
+            } else {
+                const swing = weaponInstance.swingDuration || 1000;
+                weaponInstance.swingDuration = Math.max(350, Math.floor(swing * 0.95));
+            }
+        }
     }
 
     scaleWeaponStats(weaponInstance) {
@@ -884,7 +922,8 @@ class Player extends Entity {
         this.experience = 0;
         this.experienceToNext = Math.floor(this.experienceToNext * 1.5);
         this.maxHealth += 20;
-        this.currentHealth = this.maxHealth;
+        // Do not fully heal on level-up; keep current health but cap at new max
+        this.currentHealth = Math.min(this.currentHealth, this.maxHealth);
         this.showLevelUpSelection();
         this.updateUI();
     }
@@ -1139,11 +1178,22 @@ class Player extends Entity {
             'epic': 4,
             'legendary': 1
         };
-        // If weapon slots are full, do not offer weapons
-        const includeWeapons = (this.weapons.length < this.maxWeapons);
-        const allItems = includeWeapons
-            ? { ...ITEM_TYPES, ...ENHANCED_ITEM_TYPES, ...WEAPON_TYPES }
-            : { ...ITEM_TYPES, ...ENHANCED_ITEM_TYPES };
+        // Build loot pool: items always; weapons depend on capacity and ownership
+        const includeNewWeapons = (this.weapons.length < this.maxWeapons);
+        const itemsPool = { ...ITEM_TYPES, ...ENHANCED_ITEM_TYPES };
+        // Owned weapons eligible for level-up offers ONLY if not maxed
+        const ownedWeapons = (this.weapons || []);
+        const ownedWeaponIds = new Set(ownedWeapons.map(w => w.id || w.name));
+        const nonMaxedOwnedIds = new Set(
+            ownedWeapons
+                .filter(w => (this.weaponLevels[w.id || w.name] || w.level || 1) < this.maxWeaponLevel)
+                .map(w => w.id || w.name)
+        );
+        const ownedWeaponsPool = {};
+        nonMaxedOwnedIds.forEach(id => { if (WEAPON_TYPES[id]) ownedWeaponsPool[id] = WEAPON_TYPES[id]; });
+        // New weapons only when below max weapon slots
+        const newWeaponsPool = includeNewWeapons ? WEAPON_TYPES : {};
+        const allItems = { ...itemsPool, ...(includeNewWeapons ? newWeaponsPool : {}), ...ownedWeaponsPool };
         const allItemKeys = Object.keys(allItems);
         const selectedItems = [];
         for (let i = 0; i < count; i++) {
@@ -1156,7 +1206,17 @@ class Player extends Entity {
                 const chance = Math.random() * 100;
                 if (chance < rarityWeight) {
                     const isWeapon = WEAPON_TYPES[randomKey] !== undefined;
-                    if (isWeapon && !includeWeapons) { attempts++; continue; }
+                    // If at max weapons, only offer weapons the player already owns
+                    if (isWeapon && !includeNewWeapons && !ownedWeaponIds.has(randomKey)) { attempts++; continue; }
+                    // Never offer maxed weapons
+                    if (isWeapon) {
+                        const lvl = this.weaponLevels[randomKey] || ((this.weapons || []).find(w => (w.id || w.name) === randomKey)?.level) || 0;
+                        if (lvl >= this.maxWeaponLevel) { attempts++; continue; }
+                        // If not owned and not allowed to add new (no slots), skip
+                        if (!includeNewWeapons && !ownedWeaponIds.has(randomKey)) { attempts++; continue; }
+                        // If owned but maxed (defensive double-check), skip
+                        if (ownedWeaponIds.has(randomKey) && !nonMaxedOwnedIds.has(randomKey)) { attempts++; continue; }
+                    }
                     const randomizedItem = {
                         id: randomKey,
                         sprite: itemData.sprite,
@@ -1821,6 +1881,17 @@ class Player extends Entity {
         playNextFrame();
     }
     showGameOverScreen() {
+        // Calculate score: blend of time, level, and kills
+        const timeSec = this.scene.gameTimer || 0;
+        const lvl = this.level || 1;
+        const kills = this.killCount || 0;
+        const score = Math.max(0, Math.floor(lvl * 500 + kills * 10 + timeSec * 5));
+        // Save to local storage via auth helper if available
+        try {
+            if (window.auth && typeof window.auth.updateUserStats === 'function') {
+                window.auth.updateUserStats(1, score); // +1 game played, record score
+            }
+        } catch (e) { /* ignore storage errors */ }
         const overlay = this.scene.add.rectangle(
             this.scene.cameras.main.centerX,
             this.scene.cameras.main.centerY,
@@ -1842,7 +1913,7 @@ class Player extends Entity {
         const statsText = this.scene.add.text(
             this.scene.cameras.main.centerX,
             this.scene.cameras.main.centerY - 30,
-            `Level Reached: ${this.level}\nEnemies Killed: ${this.killCount}\nDifficulty Reached: ${getDifficultyLevel()}\nTime Survived: ${this.scene.gameTimer}s`,
+            `Level Reached: ${this.level}\nEnemies Killed: ${this.killCount}\nDifficulty Reached: ${getDifficultyLevel()}\nTime Survived: ${this.scene.gameTimer}s\n\nScore: ${score}`,
             { fontSize: '20px', fill: '#ffffff', stroke: '#000000', strokeThickness: 2, align: 'center' }
         );
         statsText.setOrigin(0.5);
@@ -1916,6 +1987,7 @@ class Player extends Entity {
         if (!cursors) {
             return;
         }
+        const wasMoving = this._wasMoving || false;
         let moveX = 0;
         let moveY = 0;
         if (cursors.A && cursors.A.isDown) {
@@ -1955,290 +2027,28 @@ class Player extends Entity {
             if (this.sprite.anims.currentAnim?.key !== 'run') {
                 this.sprite.play('run');
             }
+            // Spawn slide dust when starting movement or on sharp direction change (cooldown ~300ms)
+            const now = this.scene.time.now || Date.now();
+            this._lastDustAt = this._lastDustAt || 0;
+            if (!wasMoving || (now - this._lastDustAt) > 300) {
+                const dust = this.scene.add.sprite(this.sprite.x, this.sprite.y + 20, 'SlideDust_0');
+                dust.setDepth(5);
+                dust.setScale(0.9);
+                dust.play('slide_dust_anim');
+                dust.once('animationcomplete', () => dust.destroy());
+                this._lastDustAt = now;
+            }
         } else {
             if (this.sprite.anims.currentAnim?.key !== 'idle') {
                 this.sprite.play('idle');
             }
         }
+        this._wasMoving = this.isMoving;
     }
 }
-class Enemy extends Entity {
-    constructor(scene, x, y, enemyType = 'lereon_knight') {
-        const enemyData = ENEMY_TYPES[enemyType] || ENEMY_TYPES['lereon_knight'];
-        super(scene, x, y, enemyData.sprite);
-        this.enemyType = enemyType;
-        this.enemyData = enemyData;
-        this.id = `enemy_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        this.sprite.name = this.id;
-        const difficulty = getDifficultyLevel();
-        const difficultyMultiplier = 1 + ((difficulty - 1) * 0.15);
-        const baseScale = 1.0;
-        const densityFactor = (enemyData.health + enemyData.size) / 100;
-        const scaleBonus = densityFactor > 1.5 ? 0.5 : 0;
-    const finalScale = baseScale + scaleBonus;
-    // Make enemies ~30% larger visually
-    const scaledSize = enemyData.size * finalScale * 1.3;
-        this.sprite.setDisplaySize(scaledSize, scaledSize);
-        const sizeSpeedModifier = Math.max(0.5, 1 - (enemyData.size - 24) / 200);
-        const randomSpeedVariation = 0.8 + Math.random() * 0.4;
-        const speedDifficultyBonus = 1 + ((difficulty - 1) * 0.05);
-        // Apply a global 30% speed reduction as requested
-        this.speed = ((enemyData.baseSpeed * sizeSpeedModifier * randomSpeedVariation * speedDifficultyBonus) + globalEnemySpeedBonus) * 0.7;
-        this.health = Math.floor(enemyData.health * difficultyMultiplier);
-        this.maxHealth = this.health;
-        this.damage = Math.floor(enemyData.damage * difficultyMultiplier);
-        this.damageTakenMultiplier = 1.0;
-        // Flat resistances per damage type (no immunities). Defaults to 0 for all.
-        this.resistances = { physical: 0, burn: 0, poison: 0, lightning: 0, armor_weaken: 0 };
-        // Allow per-enemy flat resistances to be specified in ENEMY_TYPES[enemyType].resistances
-        if (enemyData.resistances && typeof enemyData.resistances === 'object') {
-            this.resistances = { ...this.resistances, ...enemyData.resistances };
-        }
-        this.debuffs = {
-            poison: { time: 0, tick: 0.2, acc: 0 },
-            burn: { time: 0, tick: 1.0, acc: 0 },
-            armorWeaken: { time: 0, mult: 1.15 }
-        };
-        this.direction = Math.random() * Math.PI * 2;
-        const shadowSize = Math.max(30, scaledSize * 0.6);
-        this.collisionRadius = shadowSize * 0.75;
-        this.hurtboxRadius = Math.max(25, scaledSize * 0.45);
-        this.shadow.setSize(shadowSize, shadowSize * 0.5);
-    // Removed timer-based direction updates to reduce CPU; updates happen in update()
-    // this.createPatrolBehavior();
-        this.createHPBar();
-        if (enemyData.animated) {
-            this.createAnimations();
-            this.sprite.play(`${enemyType}_walk`);
-        }
-    }
-    createHPBar() {
-        this.hpBarBg = this.scene.add.rectangle(0, -40, 50, 6, 0x000000);
-        this.hpBarBg.setDepth(999);
-        this.hpBarFill = this.scene.add.rectangle(0, -40, 50, 6, 0xff0000);
-        this.hpBarFill.setDepth(1000);
-    }
-    createAnimations() {
-        const animPrefix = this.enemyData.animations;
-        if (animPrefix.walk) {
-            const walkKey = `${this.enemyType}_walk`;
-            if (!this.scene.anims.exists(walkKey)) {
-                this.scene.anims.create({
-                    key: walkKey,
-                    frames: [
-                        { key: `${animPrefix.walk}_1` },
-                        { key: `${animPrefix.walk}_2` },
-                        { key: `${animPrefix.walk}_3` },
-                        { key: `${animPrefix.walk}_4` },
-                        { key: `${animPrefix.walk}_5` },
-                        { key: `${animPrefix.walk}_6` }
-                    ],
-                    frameRate: 8,
-                    repeat: -1
-                });
-            }
-        }
-        if (animPrefix.attack) {
-            const attackKey = `${this.enemyType}_attack`;
-            if (!this.scene.anims.exists(attackKey)) {
-                this.scene.anims.create({
-                    key: attackKey,
-                    frames: [
-                        { key: `${animPrefix.attack}_1` },
-                        { key: `${animPrefix.attack}_2` },
-                        { key: `${animPrefix.attack}_3` },
-                        { key: `${animPrefix.attack}_4` },
-                        { key: `${animPrefix.attack}_5` },
-                        { key: `${animPrefix.attack}_6` }
-                    ],
-                    frameRate: 12,
-                    repeat: 0
-                });
-            }
-        }
-    }
-    updateHPBar() {
-        if (this.hpBarBg && this.hpBarFill) {
-            this.hpBarBg.x = this.sprite.x;
-            this.hpBarBg.y = this.sprite.y - 40;
-            this.hpBarFill.x = this.sprite.x;
-            this.hpBarFill.y = this.sprite.y - 40;
-            const healthPercent = this.health / this.maxHealth;
-            this.hpBarFill.scaleX = healthPercent;
-        }
-    }
-    createPatrolBehavior() { /* no-op: handled in update() for performance */ }
-    updateDirectionToPlayer() {
-        if (!player || !player.isAlive) return;
-        const distanceToPlayer = Phaser.Math.Distance.Between(
-            this.sprite.x, this.sprite.y,
-            player.sprite.x, player.sprite.y
-        );
-        const shadowDistance = 50;
-        if (distanceToPlayer <= shadowDistance) {
-            if (!this.lockedDirection) {
-                this.lockedDirection = this.direction;
-            }
-            return;
-        } else {
-            this.lockedDirection = null;
-        }
-        const angleToPlayer = Phaser.Math.Angle.Between(
-            this.sprite.x, this.sprite.y,
-            player.sprite.x, player.sprite.y
-        );
-        let separationForceX = 0;
-        let separationForceY = 0;
-        const separationDistance = 60;
-        if (enemies) {
-            enemies.forEach(otherEnemy => {
-                if (otherEnemy !== this && otherEnemy.isAlive) {
-                    const distance = Phaser.Math.Distance.Between(
-                        this.sprite.x, this.sprite.y,
-                        otherEnemy.sprite.x, otherEnemy.sprite.y
-                    );
-                    if (distance < separationDistance && distance > 0) {
-                        const separationStrength = (separationDistance - distance) / separationDistance;
-                        const angleAway = Phaser.Math.Angle.Between(
-                            otherEnemy.sprite.x, otherEnemy.sprite.y,
-                            this.sprite.x, this.sprite.y
-                        );
-                        separationForceX += Math.cos(angleAway) * separationStrength;
-                        separationForceY += Math.sin(angleAway) * separationStrength;
-                    }
-                }
-            });
-        }
-        const playerForceX = Math.cos(angleToPlayer) * 0.7;
-        const playerForceY = Math.sin(angleToPlayer) * 0.7;
-        const totalForceX = playerForceX + separationForceX * 0.5;
-        const totalForceY = playerForceY + separationForceY * 0.5;
-        this.direction = Math.atan2(totalForceY, totalForceX);
-        const randomOffset = (Math.random() - 0.5) * 0.2;
-        this.direction += randomOffset;
-    }
-    update() {
-        super.update();
-        if (this.isAlive && player && player.isAlive) {
-            this.updateDebuffs();
-            this.updateDirectionToPlayer();
-            const currentDirection = this.lockedDirection !== null ? this.lockedDirection : this.direction;
-            const moveX = Math.cos(currentDirection) * this.speed;
-            const moveY = Math.sin(currentDirection) * this.speed;
-            this.sprite.setVelocity(moveX, moveY);
-            if (moveX < -5) {
-                this.sprite.setFlipX(true);
-            } else if (moveX > 5) {
-                this.sprite.setFlipX(false);
-            }
-            if (this.enemyData.animated) {
-                const isMoving = Math.abs(moveX) > 5 || Math.abs(moveY) > 5;
-                const walkAnimKey = `${this.enemyType}_walk`;
-                if (isMoving && (!this.sprite.anims.isPlaying || this.sprite.anims.currentAnim.key !== walkAnimKey)) {
-                    if (this.scene.anims.exists(walkAnimKey)) {
-                        this.sprite.play(walkAnimKey);
-                    }
-                }
-            }
-            this.updateHPBar();
-        } else if (this.isAlive) {
-            this.sprite.setVelocity(0, 0);
-            this.updateHPBar();
-        }
-    }
-    updateDebuffs() {
-        const dt = (this.scene && this.scene.game && this.scene.game.loop) ? (this.scene.game.loop.delta / 1000) : (1/60);
-        // Armor weaken
-        if (this.debuffs.armorWeaken.time > 0) {
-            this.debuffs.armorWeaken.time -= dt;
-            this.damageTakenMultiplier = this.debuffs.armorWeaken.mult;
-            if (this.debuffs.armorWeaken.time <= 0) {
-                this.damageTakenMultiplier = 1.0;
-            }
-        }
-        // Poison ticks quickly, can't kill (leave at least 1 HP)
-        if (this.debuffs.poison.time > 0) {
-            this.debuffs.poison.time -= dt;
-            this.debuffs.poison.acc += dt;
-            if (this.debuffs.poison.acc >= this.debuffs.poison.tick) {
-                this.debuffs.poison.acc = 0;
-                const dmg = Math.max(1, Math.floor(2 + currentDifficulty * 0.5));
-                if (this.health > 1) {
-                    this.health = Math.max(1, this.health - dmg);
-                    this.updateHPBar();
-                }
-            }
-        }
-        // Burn ticks slower
-        if (this.debuffs.burn.time > 0) {
-            this.debuffs.burn.time -= dt;
-            this.debuffs.burn.acc += dt;
-            if (this.debuffs.burn.acc >= this.debuffs.burn.tick) {
-                this.debuffs.burn.acc = 0;
-                const dmg = Math.max(1, Math.floor(3 + currentDifficulty));
-                this.takeDamage(dmg, DAMAGE_TYPES.BURN);
-            }
-        }
-    }
-    applyDebuff(type, power = 1) {
-        switch (type) {
-            case DAMAGE_TYPES.POISON:
-                this.debuffs.poison.time = Math.min(6, (this.debuffs.poison.time || 0) + 2 * power);
-                break;
-            case DAMAGE_TYPES.BURN:
-                this.debuffs.burn.time = Math.min(6, (this.debuffs.burn.time || 0) + 2 * power);
-                break;
-            case DAMAGE_TYPES.LIGHTNING:
-            case DAMAGE_TYPES.ARMOR_WEAKEN:
-                this.debuffs.armorWeaken.time = Math.min(5, (this.debuffs.armorWeaken.time || 0) + 2 * power);
-                break;
-            default:
-                break;
-        }
-    }
-    takeDamage(damage, damageType) {
-        const mult = (this.damageTakenMultiplier || 1.0);
-        const typeKey = (typeof damageType === 'string') ? damageType.toLowerCase() : null;
-        const flatRes = typeKey && this.resistances ? (this.resistances[typeKey] || 0) : 0;
-        const scaled = Math.max(1, Math.floor(damage * mult) - flatRes);
-        this.health -= scaled;
-        this.sprite.setTint(0xff0000);
-        this.scene.time.delayedCall(100, () => {
-            if (this.isAlive) {
-                this.sprite.setTint(0xff6666);
-            }
-        });
-        if (this.health <= 0) {
-            this.die();
-        }
-        this.updateHPBar();
-    }
-    die() {
-        this.isAlive = false;
-        this.sprite.setTint(0x666666);
-        this.sprite.setVelocity(0);
-        if (player) {
-            player.gainExperience(25 + (currentDifficulty * 10));
-            player.incrementKillCount();
-        }
-        currentEnemyCount--;
-        if (this.hpBarBg) this.hpBarBg.destroy();
-        if (this.hpBarFill) this.hpBarFill.destroy();
-        this.scene.tweens.add({
-            targets: [this.sprite, this.shadow],
-            alpha: 0,
-            scaleY: 0.1,
-            duration: 500,
-            onComplete: () => this.destroy()
-        });
-    }
-    destroy() {
-        if (this.hpBarBg) this.hpBarBg.destroy();
-        if (this.hpBarFill) this.hpBarFill.destroy();
-        super.destroy();
-    }
-}
+// Enemy class moved to core/enemy.js
 let player;
+let debugOverlay;
 let cursors;
 let camera;
 let tilemap;
@@ -2246,11 +2056,15 @@ let tileLayers = {};
 let tilesets = {};
 let enemies = [];
 let zones = [];
-let currentDifficulty = 2;
+let currentDifficulty = 1;
 let globalEnemySpeedBonus = 0;
 let projectiles = [];
-let maxEnemies = 5;
+let maxEnemies = 10; // will scale up to 40 cap
 let currentEnemyCount = 0;
+// Wave progression: each wave doubles enemy strength via a global multiplier
+let currentWave = 1;
+let waveMultiplier = 1; // 2^(currentWave-1)
+window.waveMultiplier = waveMultiplier;
 const CHUNK_SIZE = 32;
 const TILE_SIZE = 48;
 const RENDER_DISTANCE = 2;
@@ -2377,6 +2191,17 @@ function preload() {
         frameWidth: 64,
         frameHeight: 64
     });
+    // SlideDust and BlockFlash frame sequences
+    this.load.image('SlideDust_0', '../sprites/effects/SlideDust/SlideDust_0.png');
+    this.load.image('SlideDust_1', '../sprites/effects/SlideDust/SlideDust_1.png');
+    this.load.image('SlideDust_2', '../sprites/effects/SlideDust/SlideDust_2.png');
+    this.load.image('SlideDust_3', '../sprites/effects/SlideDust/SlideDust_3.png');
+    this.load.image('SlideDust_4', '../sprites/effects/SlideDust/SlideDust_4.png');
+    this.load.image('BlockFlash_0', '../sprites/effects/BlockFlash/BlockFlash_0.png');
+    this.load.image('BlockFlash_1', '../sprites/effects/BlockFlash/BlockFlash_1.png');
+    this.load.image('BlockFlash_2', '../sprites/effects/BlockFlash/BlockFlash_2.png');
+    this.load.image('BlockFlash_3', '../sprites/effects/BlockFlash/BlockFlash_3.png');
+    this.load.image('BlockFlash_4', '../sprites/effects/BlockFlash/BlockFlash_4.png');
     this.load.image('arrow_static', '../sprites/projectiles/Arrow/Static.png');
     this.load.image('arrow_move', '../sprites/projectiles/Arrow/Move.png');
     this.load.image('fireball1', '../sprites/projectiles/Fireball/FB500-1.png');
@@ -2396,6 +2221,10 @@ function create() {
     tileLayers.background = tilemap.createBlankLayer('background', [tilesets.grass]);
     tileLayers.background.setDepth(-1);
     player = new Player(this, 1000 * TILE_SIZE, 1000 * TILE_SIZE);
+    // Make player reference accessible for systems that need a fallback
+    this.playerRef = player;
+    // Debug overlay (toggle with F3)
+    debugOverlay = new DebugOverlay(this);
     cursors = this.input.keyboard.addKeys({
         W: Phaser.Input.Keyboard.KeyCodes.W,
         A: Phaser.Input.Keyboard.KeyCodes.A,
@@ -2403,21 +2232,7 @@ function create() {
         D: Phaser.Input.Keyboard.KeyCodes.D
     });
 
-    const weaponKeys = this.input.keyboard.addKeys('ONE,TWO,THREE,FOUR,FIVE,SIX');
-    this.input.keyboard.on('keydown', (event) => {
-        if (!player || !player.isAlive) return;
-        
-        const keyPressed = event.key;
-        const weaponIndex = parseInt(keyPressed) - 1;
-        
-        if (weaponIndex >= 0 && weaponIndex < player.weapons.length && weaponIndex < player.maxWeapons) {
-            const selectedWeapon = player.weapons[weaponIndex];
-            if (selectedWeapon && selectedWeapon !== player.currentWeapon) {
-                player.currentWeapon = selectedWeapon;
-                player.updateInventoryUI();
-            }
-        }
-    });
+    // Removed manual weapon selection by hotkeys to simplify inventory UI usage
     
     camera = this.cameras.main;
     camera.startFollow(player.sprite);
@@ -2483,10 +2298,12 @@ function update() {
     if (GAME_STATE === 'playing') {
         enemies.forEach(enemy => {
             if (enemy.isAlive) {
-                enemy.update();
+                enemy.update(player, enemies);
             }
         });
         enemies = enemies.filter(enemy => enemy.isAlive);
+        // Keep count in sync with actual list length to avoid reliance on window globals
+        currentEnemyCount = enemies.length;
         projectiles.forEach(projectile => {
             if (projectile.isAlive) {
                 projectile.update();
@@ -2498,6 +2315,8 @@ function update() {
         zones.forEach(z => { if (z.isAlive && z.update) z.update(dt, enemies); });
         zones = zones.filter(z => z.isAlive);
         maintainEnemyLimit.call(this);
+        // Debug draw
+        if (debugOverlay) debugOverlay.draw(this, player, enemies, projectiles);
     }
     updateChunks.call(this);
 }
@@ -2524,6 +2343,24 @@ function createEffectAnimations() {
         key: 'bluefire_effect_anim',
         frames: this.anims.generateFrameNumbers('bluefire_effect', { start: 0, end: 11 }),
         frameRate: 12,
+        repeat: 0
+    });
+    // SlideDust as a simple sequence of images
+    this.anims.create({
+        key: 'slide_dust_anim',
+        frames: [
+            { key: 'SlideDust_0' }, { key: 'SlideDust_1' }, { key: 'SlideDust_2' }, { key: 'SlideDust_3' }, { key: 'SlideDust_4' }
+        ],
+        frameRate: 16,
+        repeat: 0
+    });
+    // BlockFlash as a quick burst
+    this.anims.create({
+        key: 'block_flash_anim',
+        frames: [
+            { key: 'BlockFlash_0' }, { key: 'BlockFlash_1' }, { key: 'BlockFlash_2' }, { key: 'BlockFlash_3' }, { key: 'BlockFlash_4' }
+        ],
+        frameRate: 20,
         repeat: 0
     });
 }
@@ -2572,7 +2409,31 @@ function updateDifficulty() {
     const newDifficulty = getDifficultyLevel();
     if (newDifficulty > currentDifficulty) {
         currentDifficulty = newDifficulty;
-        maxEnemies = Math.min(5 + (currentDifficulty * 2), 15);
+        // Scale enemy cap up but clamp to 40
+        maxEnemies = Math.min(10 + (currentDifficulty * 3), 40);
+    }
+    // Progress wave when player difficulty "strength" exceeds current wave strength
+    const diffStrength = Math.pow(2, Math.max(0, currentDifficulty - 1));
+    const waveStrength = waveMultiplier; // 1, 2, 4, 8, ...
+    if (diffStrength > waveStrength) {
+        // Advance to next wave
+        const previousWave = currentWave;
+        currentWave += 1;
+        waveMultiplier = Math.pow(2, currentWave - 1);
+        window.waveMultiplier = waveMultiplier;
+        // Optional: brief wave banner (disabled by SHOW_WAVE_BANNER)
+        if (SHOW_WAVE_BANNER) {
+            const scene = player?.scene;
+            if (scene && scene.add && scene.cameras && scene.time) {
+                const banner = scene.add.text(scene.cameras.main.centerX, scene.cameras.main.centerY - 140, `Wave ${currentWave}`, {
+                    fontSize: '28px', fill: '#ffd700', stroke: '#000', strokeThickness: 4
+                });
+                banner.setOrigin(0.5); banner.setDepth(2000); banner.setScrollFactor(0);
+                scene.time.delayedCall(1200, () => banner.destroy());
+            }
+        }
+        // Nudge cap on wave jumps
+        maxEnemies = Math.min(maxEnemies + 4, 40);
     }
 }
 function checkEntityCollisions() {
@@ -2646,52 +2507,24 @@ function createHPBar(entity, width = 50, height = 6, color = 0xff0000) {
 function maintainEnemyLimit() {
     if (GAME_STATE !== 'playing') return;
     updateDifficulty();
-    if (currentEnemyCount < maxEnemies) {
-        const enemiesToSpawn = Math.min(maxEnemies - currentEnemyCount, 2);
-        for (let i = 0; i < enemiesToSpawn; i++) {
-            spawnSingleEnemy.call(this);
-        }
-    }
+    const spawned = wavesMaintainEnemyLimit(this, player, enemies, Enemy, currentEnemyCount, maxEnemies, currentDifficulty);
+    if (spawned > 0) currentEnemyCount += spawned;
 }
 function spawnEnemies() {
     if (GAME_STATE !== 'playing') return;
     const initialSpawn = Math.min(maxEnemies, 3);
-    for (let i = 0; i < initialSpawn; i++) {
-        spawnSingleEnemy.call(this);
-    }
+    const spawned = wavesSpawnEnemies(this, player, enemies, Enemy, initialSpawn, currentDifficulty);
+    currentEnemyCount += spawned;
 }
 function getRandomEnemyType() {
-    const difficultyBasedTypes = [
-        ['slime', 'bat', 'spider', 'snake', 'worm'],
-        ['lereon_knight', 'wolf', 'skeleton_sword', 'orc', 'burning_demon_imp', 'skeleton_sword_animated'],
-        ['werewolf', 'viking_warrior', 'baby_dragon', 'big_skeleton', 'demon_axe_red'],
-        ['burning_demon', 'skeleton_king', 'death_angel', 'legendary_dragon']
-    ];
-    const difficultyLevel = Math.min(3, Math.floor(currentDifficulty / 2));
-    const availableTypes = [];
-    for (let i = 0; i <= difficultyLevel; i++) {
-        availableTypes.push(...difficultyBasedTypes[i]);
-    }
-    return availableTypes[Math.floor(Math.random() * availableTypes.length)];
+    return wavesGetRandomEnemyType(currentDifficulty);
 }
 function spawnSingleEnemy() {
-    const angle = Math.random() * Math.PI * 2;
-    const distance = 300 + Math.random() * 200;
-    const x = player.sprite.x + Math.cos(angle) * distance;
-    const y = player.sprite.y + Math.sin(angle) * distance;
-    const enemyType = getRandomEnemyType();
-    const enemy = new Enemy(this, x, y, enemyType);
-    enemies.push(enemy);
-    currentEnemyCount++;
+    const enemy = wavesSpawnSingleEnemy(this, player, enemies, Enemy, currentDifficulty);
+    if (enemy) currentEnemyCount++;
 }
 function startDifficultyProgression() {
-    this.time.addEvent({
-        delay: 30000,
-        callback: () => {
-            updateDifficulty();
-        },
-        loop: true
-    });
+    wavesStartDifficulty(this, () => updateDifficulty());
 }
 function generateInitialChunks() {
     const playerChunkX = Math.floor(player.sprite.x / (CHUNK_SIZE * TILE_SIZE));

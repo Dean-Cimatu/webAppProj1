@@ -10,7 +10,10 @@ class AuthHelper {
     }
 
     saveUsers() {
-        localStorage.setItem('colosseumUsers', JSON.stringify(this.users));
+        const json = JSON.stringify(this.users);
+        localStorage.setItem('colosseumUsers', json);
+        // Also mirror to users.json key for compatibility with other codepaths
+        localStorage.setItem('users.json', json);
     }
 
     loadCurrentUser() {

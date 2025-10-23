@@ -12,6 +12,7 @@ export class BurnZone {
     this.graphics.fillCircle(x, y, radius);
     this.graphics.setDepth(25);
     this._acc = 0;
+    this._perEnemyHitAt = new Map(); // throttle per-enemy zone ticks to avoid pathological overlaps
   }
   update(dt, enemies) {
     if (!this.isAlive) return;
@@ -24,8 +25,13 @@ export class BurnZone {
         if (!e.isAlive) return;
         const dist = Phaser.Math.Distance.Between(this.x, this.y, e.sprite.x, e.sprite.y);
         if (dist <= this.radius) {
-          e.takeDamage(this.dps, 'burn');
-          if (e.applyDebuff) e.applyDebuff('burn', 1);
+          const now = this.scene.time.now || Date.now();
+          const last = this._perEnemyHitAt.get(e.id) || 0;
+          if ((now - last) >= 180) {
+            this._perEnemyHitAt.set(e.id, now);
+            e.takeDamage(this.dps, 'burn');
+            if (e.applyDebuff) e.applyDebuff('burn', 1);
+          }
         }
       });
     }
@@ -46,6 +52,7 @@ export class FollowZone {
     this._pushAcc = 0;
     this.pushIntervalMs = options.pushIntervalMs || 0; // 0 disables pushback
     this.pushForce = options.pushForce || 140;
+    this._perEnemyHitAt = new Map();
   }
   update(dt, enemies) {
     if (!this.isAlive) return;
@@ -65,7 +72,12 @@ export class FollowZone {
         if (!e.isAlive) return;
         const dist = Phaser.Math.Distance.Between(x, y, e.sprite.x, e.sprite.y);
         if (dist <= this.radius) {
-          e.takeDamage(this.dps, 'burn');
+          const now = this.scene.time.now || Date.now();
+          const last = this._perEnemyHitAt.get(e.id) || 0;
+          if ((now - last) >= 180) {
+            this._perEnemyHitAt.set(e.id, now);
+            e.takeDamage(this.dps, 'burn');
+          }
         }
       });
     }
