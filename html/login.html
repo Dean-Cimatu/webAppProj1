@@ -1,10 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Login -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="../css/style.css">
     <script src="../js/auth.js"></script>
+    <script src="../js/navigation.js"></script>
+    <script src="../js/ui-sound.js"></script>
     <script src="../js/login.js"></script>
     <title>Login</title>
 </head>
@@ -20,7 +23,7 @@
     <div class="main-content">
         <h1>Login</h1>
         <div id="loginForm">
-    <form action="/login" method="post">
+    <form id="loginFormElement">
         <label for="username">Username:</label><br>
         <input type="text" id="username" name="username" required><br>
         <label for="password">Password:</label><br>

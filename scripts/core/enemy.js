@@ -1,6 +1,7 @@
 import { ENEMY_TYPES } from '../data/enemies.js';
 import { DAMAGE_TYPES } from '../data/weapons.js';
 
+// enemy ai and combat
 export class Enemy {
   constructor(scene, playerRef, x, y, enemyType = 'lereon_knight', difficulty = 1) {
     this.scene = scene;
@@ -56,7 +57,8 @@ export class Enemy {
       this.sprite.play(`${enemyType}_walk`);
     }
   }
-  // Attempt to apply damage with per-weapon/source invulnerability timers
+  
+  // Prevents same weapon from hitting multiple times too fast
   tryTakeDamage(damage, damageType, sourceKey = 'generic', invulnMs = 140) {
     const now = this.scene?.time?.now || Date.now();
     const last = this._invulnBySource.get(sourceKey) || 0;
@@ -125,7 +127,9 @@ export class Enemy {
       const currentDirection = (this.lockedDirection !== null && this.lockedDirection !== undefined) ? this.lockedDirection : this.direction;
       const moveX = Math.cos(currentDirection) * this.speed;
       const moveY = Math.sin(currentDirection) * this.speed;
-      this.sprite.setVelocity(moveX, moveY);
+      if (this.sprite.body) {
+        this.sprite.setVelocity(moveX, moveY);
+      }
       if (moveX < -5) this.sprite.setFlipX(true); else if (moveX > 5) this.sprite.setFlipX(false);
       if (this.enemyData.animated) {
         const isMoving = Math.abs(moveX) > 5 || Math.abs(moveY) > 5;
@@ -136,7 +140,9 @@ export class Enemy {
       }
       this.updateHPBar();
     } else if (this.isAlive) {
-      this.sprite.setVelocity(0, 0);
+      if (this.sprite.body) {
+        this.sprite.setVelocity(0, 0);
+      }
       this.updateHPBar();
     }
   }
@@ -185,6 +191,8 @@ export class Enemy {
     const randomOffset = (Math.random() - 0.5) * 0.2;
     this.direction += randomOffset;
   }
+  
+  // Applies poison, burn, or armor weaken effects
   applyDebuff(type, power = 1) {
     switch (type) {
       case DAMAGE_TYPES.POISON:
@@ -244,7 +252,9 @@ export class Enemy {
   die() {
     this.isAlive = false;
     this.sprite.setTint(0x666666);
-    this.sprite.setVelocity(0);
+    if (this.sprite.body) {
+      this.sprite.setVelocity(0, 0);
+    }
     const giveXPTo = this.player || (this.scene && this.scene.playerRef);
     if (giveXPTo) {
       giveXPTo.gainExperience(25 + ((window.currentDifficulty || 2) * 10));

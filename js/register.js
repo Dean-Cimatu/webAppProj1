@@ -5,7 +5,10 @@ document.addEventListener('DOMContentLoaded', function() {
     if (dobInput) {
         const today = new Date();
         const maxDate = new Date(today.getFullYear() - 13, today.getMonth(), today.getDate());
+        const minDate = new Date(today.getFullYear() - 120, today.getMonth(), today.getDate());
+        
         dobInput.max = maxDate.toISOString().split('T')[0];
+        dobInput.min = minDate.toISOString().split('T')[0];
         dobInput.required = true;
     }
     
@@ -32,9 +35,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             const today = new Date();
+            
+            // Prevent future dates
+            if (dob > today) {
+                displayMessage('Date of birth cannot be in the future.', 'error');
+                return;
+            }
+            
+            // Calculate age threshold (must be at least 13 years old)
             const threshold = new Date(today.getFullYear() - 13, today.getMonth(), today.getDate());
             if (dob > threshold) {
                 displayMessage('You must be at least 13 years old to register.', 'error');
+                return;
+            }
+            
+            // Sanity check: prevent unrealistic ages
+            const maxAge = new Date(today.getFullYear() - 120, today.getMonth(), today.getDate());
+            if (dob < maxAge) {
+                displayMessage('Please enter a valid date of birth.', 'error');
                 return;
             }
             

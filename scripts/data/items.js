@@ -1,4 +1,4 @@
-// Item definitions
+// collectible items
 export const ITEM_TYPES = {
   'berry01blue': {
     sprite: 'berry01blue',

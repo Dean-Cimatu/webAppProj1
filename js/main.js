@@ -1,8 +1,10 @@
+// home page setup
 document.addEventListener('DOMContentLoaded', function() {
     updateUserStatus();
-    updateNavigation();
+    updateNavigationState();
 });
 
+// display player stats panel
 function updateUserStatus() {
     if (auth.isLoggedIn()) {
         const user = auth.getCurrentUser();
@@ -49,7 +51,6 @@ function updateUserStatus() {
                 </div>
                 <div class="user-actions">
                     <button onclick="logout()" class="logout-btn">Logout</button>
-                    <button onclick="viewProfile()" class="profile-btn">View Profile</button>
                 </div>
             `;
             
@@ -76,19 +77,6 @@ function updateUserStatus() {
                 addWelcomePanelStyles();
             }
         }
-    }
-}
-
-function updateNavigation() {
-    const topNav = document.getElementById('topNav');
-    if (!topNav) return;
-    
-    if (auth.isLoggedIn()) {
-        const registerBtn = topNav.querySelector('a[href*="register"]');
-        const loginBtn = topNav.querySelector('a[href*="login"]');
-        
-        if (registerBtn) registerBtn.style.display = 'none';
-        if (loginBtn) loginBtn.style.display = 'none';
     }
 }
 
@@ -165,25 +153,21 @@ function addWelcomePanelStyles() {
         
         .user-actions {
             display: flex;
-            gap: 10px;
+            justify-content: center;
             margin-top: 20px;
             padding-top: 15px;
             border-top: 2px solid gold;
         }
         
-        .logout-btn, .profile-btn {
-            flex: 1;
-            padding: 10px 15px;
+        .logout-btn {
+            padding: 12px 40px;
             border: none;
             border-radius: 7.5px;
             cursor: pointer;
             font-family: 'Pickyside', monospace;
             font-weight: bold;
             transition: all 0.2s;
-            font-size: 0.9em;
-        }
-        
-        .logout-btn {
+            font-size: 1em;
             background: maroon;
             color: gold;
             border: 2px solid gold;
@@ -192,18 +176,6 @@ function addWelcomePanelStyles() {
         .logout-btn:hover {
             background: gold;
             color: maroon;
-            transform: translateY(-2px);
-        }
-        
-        .profile-btn {
-            background: rgba(70, 130, 180, 0.8);
-            color: white;
-            border: 2px solid white;
-        }
-        
-        .profile-btn:hover {
-            background: white;
-            color: steelblue;
             transform: translateY(-2px);
         }
         
@@ -222,9 +194,4 @@ function addWelcomePanelStyles() {
     document.head.appendChild(style);
 }
 
-function viewProfile() {
-    alert('Profile page coming soon!');
-}
-
 window.logout = logout;
-window.viewProfile = viewProfile;

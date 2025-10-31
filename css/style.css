@@ -1,10 +1,12 @@
+/* Fonts */
 @font-face {
     font-family: 'Pickyside';
-    src: url('../fonts/Pickyside.otf') format('opentype');
+    src: url('../assets/fonts/Pickyside.otf') format('opentype');
     font-weight: normal;
     font-style: normal;
 }
 
+/* Title */
 #title {
     width: fit-content;
     margin: 0 auto;
@@ -25,13 +27,14 @@
     font-family: 'Pickyside', 'JetBrains Mono', monospace;
 }
 
+/* Body */
 body {
     font-family: 'Pickyside', monospace;
     color: white;
     margin: 0;
     padding: 0;
     background-color: black;
-    background-image: url('../background/HDcolosseum.jpg');
+    background-image: url('../assets/background/HDcolosseum.jpg');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -39,6 +42,7 @@ body {
     overflow: hidden;
 }
 
+/* Navigation */
 #topNav {
     position: fixed;
     top: 0;
@@ -69,6 +73,7 @@ body {
     background: maroon;
 }
 
+/* Content */
 .main-content {
     margin-top: 35px;
     height: calc(100vh - 35px);
@@ -80,6 +85,7 @@ body {
     box-sizing: border-box;
 }
 
+/* Menu */
 #mainMenu {
     width: 375px;
     margin: 50px auto;
@@ -108,6 +114,7 @@ body {
     background: maroon;
 }
 
+/* Forms */
 #registerForm, #loginForm {
     width: 375px;
     margin: 25px auto;
@@ -134,6 +141,7 @@ body {
     background: maroon;
 }
 
+/* Leaderboard */
 #leaderboard {
     width: 500px;
     margin: 25px auto;
@@ -143,6 +151,7 @@ body {
     box-shadow: 0 5px 20px rgba(0,0,0,0.3);
 }
 
+/* Links */
 #registerForm a, #loginForm a {
     font-family: 'Pickyside', monospace;
     color: gold;
@@ -184,4 +193,55 @@ body > h1 {
     color: white;
     margin: 20px 0;
     font-size: 2.5em;
+}
+
+/* Game */
+body.game-page {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+body.game-page #topNav {
+    height: 50px;
+}
+
+body.game-page .main-content {
+    margin-top: 50px;
+    height: calc(100vh - 50px);
+    padding: 0;
+}
+
+#gameContainer {
+    width: 100vw;
+    height: calc(100vh - 50px);
+    margin: 0;
+    border: none;
+    background-color: black;
+}
+
+.game-instructions {
+    position: fixed;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    color: white;
+    font-family: 'Pickyside', monospace;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: 2px solid gold;
+    z-index: 999;
+}
+
+.game-instructions h2 {
+    color: gold;
+    margin: 0 0 5px 0;
+    font-size: 1.2em;
+}
+
+.game-instructions p {
+    margin: 2px 0;
+    font-size: 0.9em;
 }

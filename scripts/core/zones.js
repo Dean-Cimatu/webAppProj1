@@ -1,4 +1,4 @@
-// Simple zone effects for burn, lightning, lantern
+// area damage zones
 export class BurnZone {
   constructor(scene, x, y, radius, dps, durationMs, tint = 0xff6600) {
     this.scene = scene;

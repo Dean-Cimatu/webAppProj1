@@ -1,4 +1,4 @@
-// Weapons and damage types
+// weapon damage types
 export const DAMAGE_TYPES = {
   PHYSICAL: 'physical',
   POISON: 'poison',
@@ -243,7 +243,8 @@ export const WEAPON_TYPES = {
     description: 'Long reach pierce.',
     // Behaves like a bow arrow: large, slower projectile that pierces and travels off-screen
     attackRange: 220,
-  attackSpeed: 3300,
+  // Slow down rate of fire by 300% (4x cooldown)
+  attackSpeed: 13200,
     projectile: true,
   projectileSpeed: 320,
   // Use the spear sprite itself as the projectile
@@ -280,7 +281,8 @@ export const WEAPON_TYPES = {
     rarity: 'uncommon',
     description: 'Swift ranged bow. Arrows pierce and travel off-screen.',
     attackRange: 220,
-  attackSpeed: 1800,
+  // Slow down rate of fire by 300% (4x cooldown)
+  attackSpeed: 7200,
     projectile: true,
     projectileSpeed: 420,
     projectileSprite: 'arrow_move',

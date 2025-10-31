@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Game -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,72 +12,11 @@
     <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.js"></script>
     <!-- Auth helper must load before the game module so window.auth is available -->
     <script src="../js/auth.js"></script>
+    <script src="../js/navigation.js"></script>
     <script type="module" src="../scripts/game.js"></script>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-        }
-        
-        #topNav {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 1000;
-            height: 50px;
-        }
-        
-        .main-content {
-            margin-top: 50px;
-            height: calc(100vh - 50px);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 0;
-        }
-        
-        #gameContainer {
-            width: 100vw;
-            height: calc(100vh - 50px);
-            margin: 0;
-            border: none;
-            background-color: black;
-        }
-        
-        .game-instructions {
-            position: fixed;
-            bottom: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            text-align: center;
-            color: white;
-            font-family: 'Pickyside', monospace;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 10px 20px;
-            border-radius: 10px;
-            border: 2px solid gold;
-            z-index: 999;
-        }
-        
-        .game-instructions h2 {
-            color: gold;
-            margin: 0 0 5px 0;
-            font-size: 1.2em;
-        }
-        
-        .game-instructions p {
-            margin: 2px 0;
-            font-size: 0.9em;
-        }
-        
-
-    </style>
     <title>Colosseum Fighters - Game</title>
 </head>
-<body>
+<body class="game-page">
     <div id="topNav">
         <a href="../index.html"><button>Home</button></a>
         <a href="game.html"><button>Play</button></a>

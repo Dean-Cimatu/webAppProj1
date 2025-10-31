@@ -4,13 +4,12 @@ import { ENEMY_TYPES } from './data/enemies.js';
 import { Enemy } from './core/enemy.js';
 import { getRandomEnemyType as wavesGetRandomEnemyType, spawnSingleEnemy as wavesSpawnSingleEnemy, spawnEnemies as wavesSpawnEnemies, maintainEnemyLimit as wavesMaintainEnemyLimit, startDifficultyProgression as wavesStartDifficulty } from './core/waves.js';
 import { executeWeaponAttack } from './core/behaviors.js';
-import { DebugOverlay } from './core/debugOverlay.js';
 import { BurnZone } from './core/zones.js';
 
 const DEBUG = false;
-// Controls whether to show wave banners; disabled per request
+// wave banners disabled
 const SHOW_WAVE_BANNER = false;
-// Minimum time a wave must last before advancing (5 minutes)
+// minimum wave duration
 const MIN_WAVE_DURATION_MS = 300000;
 
 const config = {
@@ -37,12 +36,9 @@ const config = {
     }
 };
 
-// Damage types imported from data/weapons.js
-
-// Simple game state to orchestrate intro/choice/play
+// game state flow
 let GAME_STATE = 'intro'; // 'intro' | 'choice' | 'playing'
-// WEAPON_TYPES imported from data/weapons.js
-// ITEM_TYPES and ENHANCED_ITEM_TYPES imported from data/items.js
+
 class Projectile {
     constructor(scene, x, y, targetX, targetY, weapon, damage) {
         this.scene = scene;
@@ -461,6 +457,8 @@ class WeaponEntity extends Entity {
         super.destroy();
     }
 }
+
+// player character class
 class Player extends Entity {
     constructor(scene, x, y) {
         super(scene, x, y, 'idle_0');
@@ -736,8 +734,9 @@ class Player extends Entity {
         // Normal starting level for all weapons (including Stone)
         this.weaponLevels[weaponId] = 1;
         this.weapons.push(weaponInstance);
-        // Initialize per-weapon state
-        this.weaponAttackState.set(weaponId, { lastAttackTime: -99999 });
+        // Initialize per-weapon state - use current time to prevent immediate attack
+        const currentTime = this.scene.time.now;
+        this.weaponAttackState.set(weaponId, { lastAttackTime: currentTime });
         if (this.weapons.length === 1 || !this.currentWeapon) {
             this.currentWeapon = weaponInstance;
             this.updateInventoryUI();
@@ -933,6 +932,8 @@ class Player extends Entity {
                 break;
         }
     }
+    
+    // Increases level and shows upgrade choices
     levelUp() {
         this.level++;
         this.experience = 0;
@@ -1358,6 +1359,16 @@ class Player extends Entity {
         super.update();
         if (this.isAlive) {
             this.updateHPBar();
+            
+            // Apply regeneration every second
+            if (!this.lastRegenTime) this.lastRegenTime = Date.now();
+            const now = Date.now();
+            if (now - this.lastRegenTime >= 1000 && this.regeneration > 0) {
+                this.currentHealth = Math.min(this.currentHealth + this.regeneration, this.maxHealth);
+                this.updateUI();
+                this.lastRegenTime = now;
+            }
+            
             if (this.currentWeapon) {
                 if (!this.frameCount) this.frameCount = 0;
                 this.frameCount++;
@@ -1902,6 +1913,19 @@ class Player extends Entity {
         playNextFrame();
     }
     showGameOverScreen() {
+        // Play game over SFX and fade out background music
+        try { this.scene.sound.play('sfx_gameover', { volume: 1.0 }); } catch (e) {}
+        if (bgmMusic) {
+            try {
+                this.scene.tweens.add({
+                    targets: bgmMusic,
+                    volume: 0,
+                    duration: 800,
+                    ease: 'Sine.easeInOut',
+                    onComplete: () => { try { bgmMusic.stop(); bgmMusic.destroy(); } catch (e) {} bgmMusic = null; }
+                });
+            } catch (e) { try { bgmMusic.stop(); bgmMusic.destroy(); } catch(_){} bgmMusic = null; }
+        }
         // Calculate score: blend of time, level, and kills
         const timeSec = this.scene.gameTimer || 0;
         const lvl = this.level || 1;
@@ -1974,10 +1998,18 @@ class Player extends Entity {
         homeText.setOrigin(0.5);
         homeText.setScrollFactor(0);
         homeText.setDepth(3002);
+        const stopBgm = () => {
+            if (bgmMusic) {
+                try { bgmMusic.stop(); bgmMusic.destroy(); } catch (e) {}
+                bgmMusic = null;
+            }
+        };
         restartButton.on('pointerdown', () => {
+            stopBgm();
             this.scene.scene.restart();
         });
         homeButton.on('pointerdown', () => {
+            stopBgm();
             window.location.href = '../index.html';
         });
     }
@@ -2048,17 +2080,6 @@ class Player extends Entity {
             if (this.sprite.anims.currentAnim?.key !== 'run') {
                 this.sprite.play('run');
             }
-            // Spawn slide dust when starting movement or on sharp direction change (cooldown ~300ms)
-            const now = this.scene.time.now || Date.now();
-            this._lastDustAt = this._lastDustAt || 0;
-            if (!wasMoving || (now - this._lastDustAt) > 300) {
-                const dust = this.scene.add.sprite(this.sprite.x, this.sprite.y + 20, 'SlideDust_0');
-                dust.setDepth(5);
-                dust.setScale(0.9);
-                dust.play('slide_dust_anim');
-                dust.once('animationcomplete', () => dust.destroy());
-                this._lastDustAt = now;
-            }
         } else {
             if (this.sprite.anims.currentAnim?.key !== 'idle') {
                 this.sprite.play('idle');
@@ -2067,9 +2088,8 @@ class Player extends Entity {
         this._wasMoving = this.isMoving;
     }
 }
-// Enemy class moved to core/enemy.js
+
 let player;
-let debugOverlay;
 let cursors;
 let camera;
 let tilemap;
@@ -2080,9 +2100,11 @@ let zones = [];
 let currentDifficulty = 1;
 let globalEnemySpeedBonus = 0;
 let projectiles = [];
-let maxEnemies = 10; // will scale up to 40 cap
+let maxEnemies = 10;
 let currentEnemyCount = 0;
-// Wave progression: each wave doubles enemy strength via a global multiplier
+// background music
+let bgmMusic = null;
+// wave progression
 let currentWave = 1;
 let waveMultiplier = 1; // 2^(currentWave-1)
 window.waveMultiplier = waveMultiplier;
@@ -2093,6 +2115,8 @@ const RENDER_DISTANCE = 2;
 let lastChunkX = null;
 let lastChunkY = null;
 let loadedChunks = new Map();
+
+// load game assets
 function preload() {
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
@@ -2123,115 +2147,96 @@ function preload() {
         loadingBar.destroy();
         progressText.destroy();
     });
-    this.load.image('grass', '../background/bgtile.png');
+    this.load.image('grass', '../assets/background/bgtile.png');
+    // Audio assets
+    this.load.audio('sfx_gameover', '../assets/soundEffects/gameOver.mp3');
+    this.load.audio('bgm_game', '../assets/music/retro-gaming-271301.mp3');
     for (let i = 0; i < 8; i++) {
-        this.load.image(`idle_${i}`, `../sprites/player/Idle/HeroKnight_Idle_${i}.png`);
+        this.load.image(`idle_${i}`, `../assets/player/Idle/HeroKnight_Idle_${i}.png`);
     }
     for (let i = 0; i < 10; i++) {
-        this.load.image(`run_${i}`, `../sprites/player/Run/HeroKnight_Run_${i}.png`);
+        this.load.image(`run_${i}`, `../assets/player/Run/HeroKnight_Run_${i}.png`);
     }
     for (let i = 0; i < 10; i++) {
-        this.load.image(`death_${i}`, `../sprites/player/Death/HeroKnight_Death_${i}.png`);
+        this.load.image(`death_${i}`, `../assets/player/Death/HeroKnight_Death_${i}.png`);
     }
-    this.load.image('lereon_knight', '../sprites/enemies/lereon knight.png');
-    this.load.image('baby_dragon', '../sprites/enemies/baby dragon.png');
-    this.load.image('bat', '../sprites/enemies/bat.png');
-    this.load.image('big_skeleton', '../sprites/enemies/big skeleton.png');
-    this.load.image('burning_demon_imp', '../sprites/enemies/burning demon imp.png');
-    this.load.image('burning_demon', '../sprites/enemies/burning demon.png');
-    this.load.image('death_angel', '../sprites/enemies/death angel.png');
-    this.load.image('legendary_dragon', '../sprites/enemies/legendary dragon.png');
-    this.load.image('orc', '../sprites/enemies/orc.png');
-    this.load.image('skeleton_king', '../sprites/enemies/skeleton king.png');
-    this.load.image('skeleton_sword', '../sprites/enemies/skeleton sword.png');
-    this.load.image('slime', '../sprites/enemies/slime.png');
-    this.load.image('snake', '../sprites/enemies/snake.png');
-    this.load.image('spider', '../sprites/enemies/spider.png');
-    this.load.image('viking_warrior', '../sprites/enemies/viking warrior.png');
-    this.load.image('werewolf', '../sprites/enemies/werewolf.png');
-    this.load.image('wolf', '../sprites/enemies/wolf.png');
-    this.load.image('worm', '../sprites/enemies/worm.png');
-    for (let i = 1; i <= 6; i++) {
-        this.load.image(`skeleton_sword_walk_${i}`, `../sprites/enemies/skeleton_sword/walk_${i}.png`);
-        this.load.image(`skeleton_sword_attack_${i}`, `../sprites/enemies/skeleton_sword/attack1_${i}.png`);
-        this.load.image(`demon_axe_walk_${i}`, `../sprites/enemies/demon_axe_red/walk_${i}.png`);
-        this.load.image(`demon_axe_attack_${i}`, `../sprites/enemies/demon_axe_red/attack1_${i}.png`);
-    }
-    this.load.image('berry01blue', '../sprites/items/berry01blue.gif');
-    this.load.image('berry02yellow', '../sprites/items/berry02yellow.gif');
-    this.load.image('berry03purple', '../sprites/items/berry03purple.gif');
-    this.load.image('berry04red', '../sprites/items/berry04red.gif');
-    this.load.image('gem01orange', '../sprites/items/gem01orange.gif');
-    this.load.image('gem02blue', '../sprites/items/gem02blue.gif');
-    this.load.image('gem03yellow', '../sprites/items/gem03yellow.gif');
-    this.load.image('gem04purple', '../sprites/items/gem04purple.gif');
-    this.load.image('gem05red', '../sprites/items/gem05red.gif');
-    this.load.image('gem06green', '../sprites/items/gem06green.gif');
-    this.load.image('glass01orange', '../sprites/items/glass01orange.gif');
-    this.load.image('glass02blue', '../sprites/items/glass02blue.gif');
-    this.load.image('glass03yellow', '../sprites/items/glass03yellow.gif');
-    this.load.image('glass04purple', '../sprites/items/glass04purple.gif');
-    this.load.image('glass05red', '../sprites/items/glass05red.gif');
-    this.load.image('glass06green', '../sprites/items/glass06green.gif');
-    this.load.image('blueshroom', '../sprites/items/BlueShroom.png');
-    this.load.image('bongo', '../sprites/items/Bongo.png');
-    this.load.image('bottle', '../sprites/items/Bottle.png');
-    this.load.image('clock', '../sprites/items/Clock.png');
-    this.load.image('crown', '../sprites/items/Crown.png');
-    this.load.image('diamond', '../sprites/items/Diamond.png');
-    this.load.image('goldencup', '../sprites/items/GoldenCup.png');
-    this.load.image('lantern', '../sprites/items/Lantern.png');
+    this.load.image('lereon_knight', '../assets/enemies/lereon knight.png');
+    this.load.image('baby_dragon', '../assets/enemies/baby dragon.png');
+    this.load.image('bat', '../assets/enemies/bat.png');
+    this.load.image('big_skeleton', '../assets/enemies/big skeleton.png');
+    this.load.image('burning_demon_imp', '../assets/enemies/burning demon imp.png');
+    this.load.image('burning_demon', '../assets/enemies/burning demon.png');
+    this.load.image('death_angel', '../assets/enemies/death angel.png');
+    this.load.image('legendary_dragon', '../assets/enemies/legendary dragon.png');
+    this.load.image('orc', '../assets/enemies/orc.png');
+    this.load.image('skeleton_king', '../assets/enemies/skeleton king.png');
+    this.load.image('skeleton_sword', '../assets/enemies/skeleton sword.png');
+    this.load.image('slime', '../assets/enemies/slime.png');
+    this.load.image('snake', '../assets/enemies/snake.png');
+    this.load.image('spider', '../assets/enemies/spider.png');
+    this.load.image('viking_warrior', '../assets/enemies/viking warrior.png');
+    this.load.image('werewolf', '../assets/enemies/werewolf.png');
+    this.load.image('wolf', '../assets/enemies/wolf.png');
+    this.load.image('worm', '../assets/enemies/worm.png');
+    this.load.image('berry01blue', '../assets/items/berry01blue.gif');
+    this.load.image('berry02yellow', '../assets/items/berry02yellow.gif');
+    this.load.image('berry03purple', '../assets/items/berry03purple.gif');
+    this.load.image('berry04red', '../assets/items/berry04red.gif');
+    this.load.image('gem01orange', '../assets/items/gem01orange.gif');
+    this.load.image('gem02blue', '../assets/items/gem02blue.gif');
+    this.load.image('gem03yellow', '../assets/items/gem03yellow.gif');
+    this.load.image('gem04purple', '../assets/items/gem04purple.gif');
+    this.load.image('gem05red', '../assets/items/gem05red.gif');
+    this.load.image('gem06green', '../assets/items/gem06green.gif');
+    this.load.image('glass01orange', '../assets/items/glass01orange.gif');
+    this.load.image('glass02blue', '../assets/items/glass02blue.gif');
+    this.load.image('glass03yellow', '../assets/items/glass03yellow.gif');
+    this.load.image('glass04purple', '../assets/items/glass04purple.gif');
+    this.load.image('glass05red', '../assets/items/glass05red.gif');
+    this.load.image('glass06green', '../assets/items/glass06green.gif');
+    this.load.image('blueshroom', '../assets/items/BlueShroom.png');
+    this.load.image('bongo', '../assets/items/Bongo.png');
+    this.load.image('bottle', '../assets/items/Bottle.png');
+    this.load.image('clock', '../assets/items/Clock.png');
+    this.load.image('crown', '../assets/items/Crown.png');
+    this.load.image('diamond', '../assets/items/Diamond.png');
+    this.load.image('goldencup', '../assets/items/GoldenCup.png');
+    this.load.image('lantern', '../assets/items/Lantern.png');
     // Additional item-based icons used as weapon sprites
-    this.load.image('weapon_shield_icon', '../sprites/items/MetalShield.png');
-    this.load.image('weapon_torch_icon', '../sprites/items/Flashlight.png');
-    this.load.image('weapon_stone_icon', '../sprites/items/SnowBall.png');
-    this.load.image('weapon_crystalsword', '../sprites/weapons/weapon01crystalsword.gif');
-    this.load.image('weapon_dagger', '../sprites/weapons/weapon02dagger.gif');
-    this.load.image('weapon_longsword', '../sprites/weapons/weapon03longsword.gif');
-    this.load.image('weapon_flail', '../sprites/weapons/weapon04rustyflail.gif');
-    this.load.image('weapon_doubleaxe', '../sprites/weapons/weapon05doubleaxe.gif');
-    this.load.image('weapon_bow', '../sprites/weapons/weapon06bow.gif');
-    this.load.image('weapon_spear', '../sprites/weapons/weapon07spear.gif');
-    this.load.image('magic_crystalwand', '../sprites/weapons/magic01crystalwand.gif');
-    this.load.image('magic_spellbook', '../sprites/weapons/magic02spellbook.gif');
-    this.load.image('magic_orb', '../sprites/weapons/magic03orb.gif');
-    this.load.image('magic_ring', '../sprites/weapons/magic04ring.gif');
-    this.load.image('magic_wand', '../sprites/weapons/magic05wand.gif');
-    this.load.spritesheet('weaponhit_effect', '../sprites/effects/10_weaponhit_spritesheet.png', {
+    this.load.image('weapon_shield_icon', '../assets/items/MetalShield.png');
+    this.load.image('weapon_torch_icon', '../assets/items/Flashlight.png');
+    this.load.image('weapon_stone_icon', '../assets/items/SnowBall.png');
+    this.load.image('weapon_crystalsword', '../assets/weapons/weapon01crystalsword.gif');
+    this.load.image('weapon_dagger', '../assets/weapons/weapon02dagger.gif');
+    this.load.image('weapon_longsword', '../assets/weapons/weapon03longsword.gif');
+    this.load.image('weapon_flail', '../assets/weapons/weapon04rustyflail.gif');
+    this.load.image('weapon_doubleaxe', '../assets/weapons/weapon05doubleaxe.gif');
+    this.load.image('weapon_bow', '../assets/weapons/weapon06bow.gif');
+    this.load.image('weapon_spear', '../assets/weapons/weapon07spear.gif');
+    this.load.image('magic_crystalwand', '../assets/weapons/magic01crystalwand.gif');
+    this.load.image('magic_spellbook', '../assets/weapons/magic02spellbook.gif');
+    this.load.image('magic_orb', '../assets/weapons/magic03orb.gif');
+    this.load.image('magic_ring', '../assets/weapons/magic04ring.gif');
+    this.load.image('magic_wand', '../assets/weapons/magic05wand.gif');
+    this.load.spritesheet('weaponhit_effect', '../assets/effects/10_weaponhit_spritesheet.png', {
         frameWidth: 64,
         frameHeight: 64
     });
-    this.load.spritesheet('fire_effect', '../sprites/effects/11_fire_spritesheet.png', {
+    this.load.spritesheet('fire_effect', '../assets/effects/11_fire_spritesheet.png', {
         frameWidth: 64,
         frameHeight: 64
     });
-    this.load.spritesheet('magic_effect', '../sprites/effects/1_magicspell_spritesheet.png', {
+    this.load.spritesheet('magic_effect', '../assets/effects/1_magicspell_spritesheet.png', {
         frameWidth: 64,
         frameHeight: 64
     });
-    this.load.spritesheet('bluefire_effect', '../sprites/effects/3_bluefire_spritesheet.png', {
+    this.load.spritesheet('bluefire_effect', '../assets/effects/3_bluefire_spritesheet.png', {
         frameWidth: 64,
         frameHeight: 64
     });
-    // SlideDust and BlockFlash frame sequences
-    this.load.image('SlideDust_0', '../sprites/effects/SlideDust/SlideDust_0.png');
-    this.load.image('SlideDust_1', '../sprites/effects/SlideDust/SlideDust_1.png');
-    this.load.image('SlideDust_2', '../sprites/effects/SlideDust/SlideDust_2.png');
-    this.load.image('SlideDust_3', '../sprites/effects/SlideDust/SlideDust_3.png');
-    this.load.image('SlideDust_4', '../sprites/effects/SlideDust/SlideDust_4.png');
-    this.load.image('BlockFlash_0', '../sprites/effects/BlockFlash/BlockFlash_0.png');
-    this.load.image('BlockFlash_1', '../sprites/effects/BlockFlash/BlockFlash_1.png');
-    this.load.image('BlockFlash_2', '../sprites/effects/BlockFlash/BlockFlash_2.png');
-    this.load.image('BlockFlash_3', '../sprites/effects/BlockFlash/BlockFlash_3.png');
-    this.load.image('BlockFlash_4', '../sprites/effects/BlockFlash/BlockFlash_4.png');
-    this.load.image('arrow_static', '../sprites/projectiles/Arrow/Static.png');
-    this.load.image('arrow_move', '../sprites/projectiles/Arrow/Move.png');
-    this.load.image('fireball1', '../sprites/projectiles/Fireball/FB500-1.png');
-    this.load.image('fireball2', '../sprites/projectiles/Fireball/FB500-2.png');
-    this.load.image('fireball3', '../sprites/projectiles/Fireball/FB500-3.png');
-    this.load.image('fireball4', '../sprites/projectiles/Fireball/FB500-4.png');
-    this.load.image('fireball5', '../sprites/projectiles/Fireball/FB500-5.png');
 }
+
+// setup game world
 function create() {
     tilemap = this.make.tilemap({
         tileWidth: TILE_SIZE,
@@ -2245,8 +2250,6 @@ function create() {
     player = new Player(this, 1000 * TILE_SIZE, 1000 * TILE_SIZE);
     // Make player reference accessible for systems that need a fallback
     this.playerRef = player;
-    // Debug overlay (toggle with F3)
-    debugOverlay = new DebugOverlay(this);
     cursors = this.input.keyboard.addKeys({
         W: Phaser.Input.Keyboard.KeyCodes.W,
         A: Phaser.Input.Keyboard.KeyCodes.A,
@@ -2310,6 +2313,8 @@ function create() {
     
     generateInitialChunks.call(this);
 }
+
+// game loop
 function update() {
     if (player && player.isAlive) {
         player.handleInput(cursors);
@@ -2337,8 +2342,6 @@ function update() {
         zones.forEach(z => { if (z.isAlive && z.update) z.update(dt, enemies); });
         zones = zones.filter(z => z.isAlive);
         maintainEnemyLimit.call(this);
-        // Debug draw
-        if (debugOverlay) debugOverlay.draw(this, player, enemies, projectiles);
     }
     updateChunks.call(this);
 }
@@ -2367,24 +2370,6 @@ function createEffectAnimations() {
         frameRate: 12,
         repeat: 0
     });
-    // SlideDust as a simple sequence of images
-    this.anims.create({
-        key: 'slide_dust_anim',
-        frames: [
-            { key: 'SlideDust_0' }, { key: 'SlideDust_1' }, { key: 'SlideDust_2' }, { key: 'SlideDust_3' }, { key: 'SlideDust_4' }
-        ],
-        frameRate: 16,
-        repeat: 0
-    });
-    // BlockFlash as a quick burst
-    this.anims.create({
-        key: 'block_flash_anim',
-        frames: [
-            { key: 'BlockFlash_0' }, { key: 'BlockFlash_1' }, { key: 'BlockFlash_2' }, { key: 'BlockFlash_3' }, { key: 'BlockFlash_4' }
-        ],
-        frameRate: 20,
-        repeat: 0
-    });
 }
 function startIntroSequence() {
     // Skip story banner; show only the weapon choice immediately with a subtle overlay
@@ -2398,6 +2383,12 @@ function startIntroSequence() {
         // On selection complete
         if (overlay && overlay.destroy) overlay.destroy();
         GAME_STATE = 'playing';
+        // Start background music at ~-30dB + 10% (volume ~0.035) with a short fade-in
+        if (!bgmMusic) {
+            bgmMusic = this.sound.add('bgm_game', { volume: 0, loop: true });
+            bgmMusic.play();
+            this.tweens.add({ targets: bgmMusic, volume: 0.035, duration: 1200, ease: 'Sine.easeInOut' });
+        }
         // Mark the start of the wave for duration gating
         waveStartAtMs = Date.now();
         spawnEnemies.call(this);

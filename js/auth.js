@@ -1,3 +1,4 @@
+// user authentication and storage
 class AuthHelper {
     constructor() {
         this.users = this.loadUsers();
@@ -48,6 +49,7 @@ class AuthHelper {
         return !this.users.some(user => user.email.toLowerCase() === email.toLowerCase());
     }
 
+    // Creates new user account with validation
     register(userData) {
         const { username, email, password, dateOfBirth } = userData;
         if (!username || username.trim().length < 3) {
@@ -79,9 +81,19 @@ class AuthHelper {
             return { success: false, message: 'Please enter a valid date of birth.' };
         }
         const today = new Date();
+        // Prevent future dates
+        if (dobDate > today) {
+            return { success: false, message: 'Date of birth cannot be in the future.' };
+        }
+        // Calculate age threshold
         const threshold = new Date(today.getFullYear() - 13, today.getMonth(), today.getDate());
         if (dobDate > threshold) {
             return { success: false, message: 'You must be at least 13 years old to register.' };
+        }
+        // Sanity check: prevent unrealistic ages (e.g., over 120 years old)
+        const maxAge = new Date(today.getFullYear() - 120, today.getMonth(), today.getDate());
+        if (dobDate < maxAge) {
+            return { success: false, message: 'Please enter a valid date of birth.' };
         }
 
         const newUser = {
@@ -106,6 +118,7 @@ class AuthHelper {
         };
     }
 
+    // Authenticates user and starts session
     login(username, password) {
         if (!username || !password) {
             return { success: false, message: 'Please enter both username and password.' };
@@ -145,6 +158,7 @@ class AuthHelper {
         return this.currentUser;
     }
 
+    // Updates player stats after game ends
     updateUserStats(gamesPlayed = 0, score = 0) {
         if (!this.currentUser) return false;
 

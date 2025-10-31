@@ -1,6 +1,7 @@
+// weapon attack behaviors
 import { BurnZone, FollowZone, LightningStrike, LightningFallStrike, OrbitingBlade } from './zones.js';
 
-// Helper: damage enemies in a line segment from (x,y) in angle dir with length L and width W
+// line damage attack
 function lineDamage(scene, player, enemies, x, y, angle, length, width, damage, damageType, sourceKey = 'melee', invulnMs = 140) {
   const dx = Math.cos(angle), dy = Math.sin(angle);
   const endX = x + dx * length, endY = y + dy * length;
@@ -23,6 +24,8 @@ function lineDamage(scene, player, enemies, x, y, angle, length, width, damage, 
         e.takeDamage(damage, damageType);
       }
       if (damageType && e.applyDebuff) e.applyDebuff(damageType, 1 + (player?.debuffPower || 0));
+      // Show floating damage text
+      if (player && player.showFloatingDamage) player.showFloatingDamage(e, damage);
     }
   });
 }
@@ -53,6 +56,8 @@ function coneDamage(scene, player, enemies, x, y, angle, radius, arcRadians, dam
         e.takeDamage(damage, damageType);
       }
       if (damageType && e.applyDebuff) e.applyDebuff(damageType, 1 + (player?.debuffPower || 0));
+      // Show floating damage text
+      if (player && player.showFloatingDamage) player.showFloatingDamage(e, damage);
     }
   });
 }
